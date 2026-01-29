@@ -60,6 +60,7 @@ export interface Workspace {
     id: string;
     title: string;
     order: number;
+    owner_id: string;
 }
 
 

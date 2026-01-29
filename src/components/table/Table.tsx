@@ -134,8 +134,9 @@ export const Table = ({ boardId }: { boardId: string }) => {
                         valB = valB || '';
                     } else if (col.type === 'status' || col.type === 'dropdown') {
                         // Try to find option label if val maps to an option ID
-                        const optA = col.options?.find(o => o.id === valA || o.label === valA);
-                        const optB = col.options?.find(o => o.id === valB || o.label === valB);
+                        const options = Array.isArray(col.options) ? col.options : [];
+                        const optA = options.find(o => o.id === valA || o.label === valA);
+                        const optB = options.find(o => o.id === valB || o.label === valB);
                         valA = (optA ? optA.label : (valA || '')).toString().toLowerCase();
                         valB = (optB ? optB.label : (valB || '')).toString().toLowerCase();
                     } else {
@@ -398,7 +399,8 @@ export const Table = ({ boardId }: { boardId: string }) => {
                                                                                             const val = v || 'default';
                                                                                             counts[val] = (counts[val] || 0) + 1;
                                                                                         });
-                                                                                        return col.options?.map(opt => {
+                                                                                        const options = Array.isArray(col.options) ? col.options : [];
+                                                                                        return options.map(opt => {
                                                                                             const count = counts[opt.id] || counts[opt.label] || 0;
                                                                                             if (count === 0) return null;
                                                                                             const widthPct = (count / total) * 100;

@@ -10,11 +10,12 @@ interface BoardState {
     showHiddenItems: boolean;
     activeWorkspaceId: string;
     workspaces: Workspace[];
+    sharedBoardIds: string[];
 
     // Async State
     isLoading: boolean;
     error: string | null;
-    loadUserData: () => Promise<void>;
+    loadUserData: (isSilent?: boolean) => Promise<void>;
 
     // Actions
     addBoard: (title: string, subWorkspaceId?: string) => Promise<void>;
@@ -94,6 +95,14 @@ interface BoardState {
     // Realtime Subscription
     subscribeToRealtime: () => void;
     unsubscribeFromRealtime: () => void;
+
+    // Workspace & Board Sharing
+    inviteToWorkspace: (workspaceId: string, email: string, role: string) => Promise<void>;
+    inviteToBoard: (boardId: string, email: string, role: string) => Promise<void>;
+    getWorkspaceMembers: (workspaceId: string) => Promise<any[]>;
+    getBoardMembers: (boardId: string) => Promise<any[]>;
+    updateMemberRole: (memberId: string, newRole: string, type: 'workspace' | 'board') => Promise<void>;
+    removeMember: (memberId: string, type: 'workspace' | 'board') => Promise<void>;
 }
 
 
@@ -101,6 +110,7 @@ interface BoardState {
 export const useBoardStore = create<BoardState>((set, get) => ({
     boards: [],
     workspaces: [],
+    sharedBoardIds: [],
     activeBoardId: null,
     activeWorkspaceId: '',
     selectedItemIds: [],
@@ -110,8 +120,9 @@ export const useBoardStore = create<BoardState>((set, get) => ({
     isLoading: true,
     error: null,
 
-    loadUserData: async () => {
-        set({ isLoading: true, error: null });
+    loadUserData: async (isSilent = false) => {
+        if (!isSilent) set({ isLoading: true, error: null });
+        else set({ error: null });
         try {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) {
@@ -124,13 +135,15 @@ export const useBoardStore = create<BoardState>((set, get) => ({
                 { data: boards },
                 { data: groups },
                 { data: columns },
-                { data: items }
+                { data: items },
+                { data: sharedBoardsData }
             ] = await Promise.all([
                 supabase.from('workspaces').select('*').order('order'),
                 supabase.from('boards').select('*').order('order'),
                 supabase.from('groups').select('*').order('order'),
                 supabase.from('columns').select('*').order('order'),
-                supabase.from('items').select('*').order('order')
+                supabase.from('items').select('*').order('order'),
+                supabase.from('board_members').select('board_id').eq('user_id', user.id)
             ]);
 
             if (!workspaces || !boards) throw new Error('Failed to load core data');
@@ -211,7 +224,7 @@ export const useBoardStore = create<BoardState>((set, get) => ({
 
                 // Update Local State immediately
                 set({
-                    workspaces: [{ id: workspaceId, title: 'My Workspace', order: 0 }],
+                    workspaces: [{ id: workspaceId, title: 'My Workspace', order: 0, owner_id: user.id }],
                     boards: [{
                         id: boardId,
                         workspaceId: workspaceId,
@@ -282,8 +295,9 @@ export const useBoardStore = create<BoardState>((set, get) => ({
             });
 
             set({
-                workspaces: workspaces.map(w => ({ id: w.id, title: w.title, order: w.order })),
+                workspaces: workspaces.map(w => ({ id: w.id, title: w.title, order: w.order, owner_id: w.owner_id })),
                 boards: fullBoards,
+                sharedBoardIds: sharedBoardsData?.map((r: any) => r.board_id) || [],
                 isLoading: false,
                 activeWorkspaceId: workspaces[0]?.id || '',
                 activeBoardId: fullBoards[0]?.id || null
@@ -307,7 +321,7 @@ export const useBoardStore = create<BoardState>((set, get) => ({
         const newId = uuidv4();
         const { workspaces } = get();
         const order = workspaces.length;
-        set({ workspaces: [...workspaces, { id: newId, title, order }], activeWorkspaceId: newId });
+        set({ workspaces: [...workspaces, { id: newId, title, order, owner_id: user.id }], activeWorkspaceId: newId });
         await supabase.from('workspaces').insert({ id: newId, title, owner_id: user.id, order });
     },
     deleteWorkspace: async (id) => {
@@ -453,9 +467,77 @@ export const useBoardStore = create<BoardState>((set, get) => ({
         set(state => ({ boards: state.boards.map(b => b.id === activeBoardId ? { ...b, columns: b.columns.map(c => c.id === columnId ? { ...c, aggregation: type } : c) } : b) }));
         // Should sync
     },
-    addColumnOption: (_columnId, _label, _color) => { /* TODO */ },
-    updateColumnOption: (_columnId, _optionId, _updates) => { /* TODO */ },
-    deleteColumnOption: (_columnId, _optionId) => { /* TODO */ },
+    addColumnOption: async (columnId, label, color) => {
+        const { activeBoardId } = get();
+        if (!activeBoardId) return;
+        let finalOptions: any[] = [];
+
+        set(state => ({
+            boards: state.boards.map(b => {
+                if (b.id !== activeBoardId) return b;
+                return {
+                    ...b,
+                    columns: b.columns.map(c => {
+                        if (c.id !== columnId) return c;
+                        const safeOptions = Array.isArray(c.options) ? c.options : [];
+                        finalOptions = [...safeOptions, { id: uuidv4(), label, color }];
+                        return { ...c, options: finalOptions };
+                    })
+                };
+            })
+        }));
+
+        if (finalOptions.length > 0) {
+            await supabase.from('columns').update({ options: finalOptions }).eq('id', columnId);
+        }
+    },
+    updateColumnOption: async (columnId, optionId, updates) => {
+        const { activeBoardId } = get();
+        if (!activeBoardId) return;
+        let finalOptions: any[] = [];
+
+        set(state => ({
+            boards: state.boards.map(b => {
+                if (b.id !== activeBoardId) return b;
+                return {
+                    ...b,
+                    columns: b.columns.map(c => {
+                        if (c.id !== columnId) return c;
+                        const safeOptions = Array.isArray(c.options) ? c.options : [];
+                        finalOptions = safeOptions.map(o => o.id === optionId ? { ...o, ...updates } : o);
+                        return { ...c, options: finalOptions };
+                    })
+                };
+            })
+        }));
+
+        if (finalOptions.length > 0) {
+            await supabase.from('columns').update({ options: finalOptions }).eq('id', columnId);
+        }
+    },
+    deleteColumnOption: async (columnId, optionId) => {
+        const { activeBoardId } = get();
+        if (!activeBoardId) return;
+        let finalOptions: any[] = [];
+
+        set(state => ({
+            boards: state.boards.map(b => {
+                if (b.id !== activeBoardId) return b;
+                return {
+                    ...b,
+                    columns: b.columns.map(c => {
+                        if (c.id !== columnId) return c;
+                        const safeOptions = Array.isArray(c.options) ? c.options : [];
+                        finalOptions = safeOptions.filter(o => o.id !== optionId);
+                        return { ...c, options: finalOptions };
+                    })
+                };
+            })
+        }));
+
+        // Allow empty array update
+        await supabase.from('columns').update({ options: finalOptions }).eq('id', columnId);
+    },
 
     // --- Item Actions ---
     addItem: async (title, groupId) => {
@@ -586,178 +668,171 @@ export const useBoardStore = create<BoardState>((set, get) => ({
         const { activeWorkspaceId } = get();
         if (!activeWorkspaceId) return;
 
-        supabase.removeAllChannels();
-
-        supabase.channel('db-changes')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'items' }, (payload) => {
-                const { eventType, new: newRecord, old: oldRecord } = payload;
-                set((state) => {
-                    const currentBoards = [...state.boards];
-                    const record = (newRecord || oldRecord) as any;
-
-                    if (eventType === 'DELETE') {
-                        const deletedId = oldRecord.id;
-                        currentBoards.forEach(b => {
-                            b.items = b.items.filter(i => i.id !== deletedId);
-                            b.groups.forEach(g => {
-                                g.items = g.items.filter(i => i.id !== deletedId);
-                            });
-                        });
-                        return { boards: currentBoards };
-                    }
-
-                    if (!record.board_id) return {};
-                    const boardIndex = currentBoards.findIndex(b => b.id === record.board_id);
-                    if (boardIndex === -1) return {};
-                    const board = currentBoards[boardIndex];
-
-                    if (eventType === 'INSERT') {
-                        if (board.items.some(i => i.id === record.id)) return {}; // Optimistic check
-
-                        let parsedValues = record.values;
-                        if (typeof parsedValues === 'string') {
-                            try { parsedValues = JSON.parse(parsedValues); } catch { }
-                        }
-
-                        const newItem: Item = {
-                            id: record.id,
-                            title: record.title,
-                            groupId: record.group_id,
-                            values: parsedValues || {},
-                            updates: [],
-                            isHidden: record.is_hidden || false
-                        };
-
-                        board.items.push(newItem);
-                        const groupIndex = board.groups.findIndex(g => g.id === record.group_id);
-                        if (groupIndex !== -1) board.groups[groupIndex].items.push(newItem);
-
-                        return { boards: currentBoards };
-                    }
-
-                    if (eventType === 'UPDATE') {
-                        const itemIndex = board.items.findIndex(i => i.id === record.id);
-                        if (itemIndex !== -1) {
-                            let parsedValues = record.values;
-                            if (typeof parsedValues === 'string') {
-                                try { parsedValues = JSON.parse(parsedValues); } catch { }
-                            }
-
-                            const updates: Partial<Item> = {
-                                title: record.title,
-                                groupId: record.group_id,
-                                values: parsedValues,
-                                isHidden: record.is_hidden
-                            };
-
-                            board.items[itemIndex] = { ...board.items[itemIndex], ...updates };
-
-                            // Update groups
-                            board.groups.forEach(g => {
-                                const gIdx = g.items.findIndex(i => i.id === record.id);
-                                if (gIdx !== -1) {
-                                    if (record.group_id && record.group_id !== g.id) {
-                                        g.items.splice(gIdx, 1); // Remove from old group
-                                    } else {
-                                        g.items[gIdx] = { ...g.items[gIdx], ...updates };
-                                    }
-                                }
-                                if (record.group_id === g.id && gIdx === -1) {
-                                    g.items.push(board.items[itemIndex]); // Add to new group
-                                }
-                            });
-                        }
-                        return { boards: currentBoards };
-                    }
-                    return {};
-                });
-            })
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'columns' }, (payload) => {
-                const { eventType, new: newRecord, old: oldRecord } = payload;
-                set((state) => {
-                    const currentBoards = [...state.boards];
-                    const record = (newRecord || oldRecord) as any;
-
-                    if (eventType === 'DELETE') {
-                        currentBoards.forEach(b => {
-                            b.columns = b.columns.filter(c => c.id !== oldRecord.id);
-                        });
-                        return { boards: currentBoards };
-                    }
-
-                    const boardIndex = currentBoards.findIndex(b => b.id === record.board_id);
-                    if (boardIndex === -1) return {};
-
-                    if (eventType === 'INSERT') {
-                        if (currentBoards[boardIndex].columns.some(c => c.id === record.id)) return {};
-
-                        let options = record.options;
-                        if (typeof options === 'string') try { options = JSON.parse(options); } catch { }
-
-                        const newCol = {
-                            ...record,
-                            type: record.type as ColumnType,
-                            options: options || []
-                        };
-                        currentBoards[boardIndex].columns.push(newCol);
-                        return { boards: currentBoards };
-                    }
-
-                    if (eventType === 'UPDATE') {
-                        const idx = currentBoards[boardIndex].columns.findIndex(c => c.id === record.id);
-                        if (idx !== -1) {
-                            let options = record.options;
-                            if (typeof options === 'string') try { options = JSON.parse(options); } catch { }
-
-                            currentBoards[boardIndex].columns[idx] = {
-                                ...currentBoards[boardIndex].columns[idx],
-                                ...record,
-                                type: record.type as ColumnType,
-                                options: options || currentBoards[boardIndex].columns[idx].options
-                            };
-                        }
-                        return { boards: currentBoards };
-                    }
-                    return {};
-                });
-            })
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'groups' }, (payload) => {
-                const { eventType, new: newRecord, old: oldRecord } = payload;
-                set((state) => {
-                    const currentBoards = [...state.boards];
-                    const record = (newRecord || oldRecord) as any;
-
-                    if (eventType === 'DELETE') {
-                        currentBoards.forEach(b => {
-                            b.groups = b.groups.filter(g => g.id !== oldRecord.id);
-                        });
-                        return { boards: currentBoards };
-                    }
-
-                    const boardIndex = currentBoards.findIndex(b => b.id === record.board_id);
-                    if (boardIndex === -1) return {};
-
-                    if (eventType === 'INSERT') {
-                        if (currentBoards[boardIndex].groups.some(g => g.id === record.id)) return {};
-                        currentBoards[boardIndex].groups.push({ ...record, items: [] });
-                        return { boards: currentBoards };
-                    }
-
-                    if (eventType === 'UPDATE') {
-                        const idx = currentBoards[boardIndex].groups.findIndex(g => g.id === record.id);
-                        if (idx !== -1) {
-                            currentBoards[boardIndex].groups[idx] = { ...currentBoards[boardIndex].groups[idx], ...record };
-                        }
-                        return { boards: currentBoards };
-                    }
-                    return {};
-                });
-            })
+        supabase.channel(`workspace:${activeWorkspaceId}`)
+            .on(
+                'postgres_changes',
+                {
+                    event: '*',
+                    schema: 'public',
+                },
+                () => {
+                    get().loadUserData(true);
+                }
+            )
             .subscribe();
+
+
     },
 
     unsubscribeFromRealtime: () => {
         supabase.removeAllChannels();
+    },
+
+    // --- Workspace & Board Sharing Actions ---
+    inviteToWorkspace: async (workspaceId: string, email: string, role: string) => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        // Find user by email
+        const { data: inviteeProfile } = await supabase
+            .from('profiles')
+            .select('id, full_name')
+            .eq('email', email)
+            .single();
+
+        if (!inviteeProfile) {
+            alert('User not found with that email');
+            return;
+        }
+
+        // Get workspace name
+        const { workspaces } = get();
+        const workspace = workspaces.find(w => w.id === workspaceId);
+
+        // Create notification
+        await supabase.from('notifications').insert({
+            user_id: inviteeProfile.id,
+            type: 'workspace_invite',
+            title: `${user.user_metadata?.full_name || user.email} invited you to a workspace`,
+            message: `You've been invited to join "${workspace?.title}" as ${role}`,
+            data: {
+                workspace_id: workspaceId,
+                inviter_id: user.id,
+                role
+            }
+        });
+    },
+
+    inviteToBoard: async (boardId: string, email: string, role: string) => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        // Find user by email
+        const { data: inviteeProfile } = await supabase
+            .from('profiles')
+            .select('id, full_name')
+            .eq('email', email)
+            .single();
+
+        if (!inviteeProfile) {
+            alert('User not found with that email');
+            return;
+        }
+
+        // Get board name
+        const { boards } = get();
+        const board = boards.find(b => b.id === boardId);
+
+        // Create notification
+        await supabase.from('notifications').insert({
+            user_id: inviteeProfile.id,
+            type: 'board_invite',
+            title: `${user.user_metadata?.full_name || user.email} invited you to a board`,
+            message: `You've been invited to join "${board?.title}" as ${role}`,
+            data: {
+                board_id: boardId,
+                inviter_id: user.id,
+                role
+            }
+        });
+    },
+
+    getWorkspaceMembers: async (workspaceId: string) => {
+        const { data, error } = await supabase
+            .from('workspace_members')
+            .select(`
+                id,
+                role,
+                joined_at,
+                user_id,
+                profiles:user_id (
+                    id,
+                    email,
+                    full_name,
+                    avatar_url
+                )
+            `)
+            .eq('workspace_id', workspaceId);
+
+        if (error) {
+            console.error('Error fetching workspace members:', error);
+            return [];
+        }
+
+        return data || [];
+    },
+
+    getBoardMembers: async (boardId: string) => {
+        const { data, error } = await supabase
+            .from('board_members')
+            .select(`
+                id,
+                role,
+                joined_at,
+                user_id,
+                profiles:user_id (
+                    id,
+                    email,
+                    full_name,
+                    avatar_url
+                )
+            `)
+            .eq('board_id', boardId);
+
+        if (error) {
+            console.error('Error fetching board members:', error);
+            return [];
+        }
+
+        return data || [];
+    },
+
+    updateMemberRole: async (memberId: string, newRole: string, type: 'workspace' | 'board') => {
+        const table = type === 'workspace' ? 'workspace_members' : 'board_members';
+
+        const { error } = await supabase
+            .from(table)
+            .update({ role: newRole })
+            .eq('id', memberId);
+
+        if (error) {
+            console.error('Error updating member role:', error);
+
+        }
+    },
+
+    removeMember: async (memberId: string, type: 'workspace' | 'board') => {
+        const table = type === 'workspace' ? 'workspace_members' : 'board_members';
+
+        const { error } = await supabase
+            .from(table)
+            .delete()
+            .eq('id', memberId);
+
+        if (error) {
+            console.error('Error removing member:', error);
+
+        }
     }
 }));
 

@@ -14,10 +14,15 @@ import { LoginPage } from './pages/LoginPage';
 function MainApp() {
   const { activeBoardId, boards, activeItemId, setActiveItem, loadUserData, isLoading, subscribeToRealtime, unsubscribeFromRealtime, activeWorkspaceId } = useBoardStore();
   const activeBoard = boards.find(b => b.id === activeBoardId);
+  const { session } = useAuth();
 
   useEffect(() => {
-    loadUserData();
-  }, []);
+    console.log('MainApp: session changed', session);
+    if (session) {
+      console.log('MainApp: calling loadUserData');
+      loadUserData();
+    }
+  }, [session]);
 
   useEffect(() => {
     if (activeWorkspaceId) {

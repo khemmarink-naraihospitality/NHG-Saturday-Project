@@ -1,4 +1,7 @@
-import { useUserStore } from '../store/useUserStore';
+import { useEffect, useState } from 'react';
+import { useAuth } from '../contexts/AuthContext';
+import { useBoardStore } from '../store/useBoardStore';
+import { supabase } from '../lib/supabase';
 
 type PermissionAction =
     | 'view_board'
@@ -13,49 +16,103 @@ type PermissionAction =
     | 'manage_feedback';
 
 export const usePermission = () => {
-    const { currentUser } = useUserStore();
-    const role = currentUser.role;
+    const { user } = useAuth();
+
+    // Optimize state selection to avoid re-running on every board update
+    const activeBoardWorkspaceId = useBoardStore(state =>
+        state.boards.find(b => b.id === state.activeBoardId)?.workspaceId
+    );
+    const activeWorkspaceId = useBoardStore(state => state.activeWorkspaceId);
+    const activeBoardId = useBoardStore(state => state.activeBoardId);
+    // Find workspace owner without retrieving the whole workspace object repeatedly
+    const activeWorkspaceOwnerId = useBoardStore(state =>
+        state.workspaces.find(w => w.id === (activeBoardWorkspaceId || activeWorkspaceId))?.owner_id
+    );
+
+    const [userRole, setUserRole] = useState<string>('viewer');
+
+    useEffect(() => {
+        if (!user || (!activeWorkspaceId && !activeBoardId)) {
+            setUserRole('viewer');
+            return;
+        }
+
+        const checkPermissions = async () => {
+            const targetWorkspaceId = activeBoardWorkspaceId || activeWorkspaceId;
+
+            // 1. Check if user is workspace owner (Fastest)
+            if (activeWorkspaceOwnerId === user.id) {
+                setUserRole('owner');
+                return;
+            }
+
+            // 2. Check board membership (Prioritize this! Avoids workspace_members 406 for Guests)
+            if (activeBoardId) {
+                try {
+                    const { data: boardMember, error: bmError } = await supabase
+                        .from('board_members')
+                        .select('role')
+                        .eq('board_id', activeBoardId)
+                        .eq('user_id', user.id)
+                        .single();
+
+                    if (bmError && bmError.code !== 'PGRST116') {
+                        console.error('Board Member Check Error:', bmError);
+                    }
+
+                    if (boardMember) {
+                        setUserRole(boardMember.role);
+                        return;
+                    }
+                } catch (err) {
+                    console.error('Board Member Check Exception:', err);
+                }
+            }
+
+            // 3. Check workspace membership (Fallback)
+            try {
+                const { data: workspaceMember } = await supabase
+                    .from('workspace_members')
+                    .select('role')
+                    .eq('workspace_id', targetWorkspaceId)
+                    .eq('user_id', user.id)
+                    .single();
+
+                if (workspaceMember) {
+                    setUserRole(workspaceMember.role);
+                    return;
+                }
+            } catch (err) {
+                // Ignore 406 or PGRST116 (Not found/Not Acceptable)
+                // console.warn('Workspace Check Skipped/Failed', err);
+            }
+
+            // Default to viewer if no membership found
+            setUserRole('viewer');
+        };
+
+        checkPermissions();
+        // Only re-run if these specific IDs change (not the whole arrays)
+    }, [user?.id, activeWorkspaceId, activeBoardId, activeBoardWorkspaceId, activeWorkspaceOwnerId]);
 
     const can = (action: PermissionAction): boolean => {
-        if (role === 'owner') return true;
+        if (userRole === 'owner') return true;
 
-        switch (action) {
-            case 'view_board':
-                return true; // All roles
+        const permissions: Record<string, string[]> = {
+            'view_board': ['viewer', 'member', 'admin', 'owner'],
+            'edit_items': ['member', 'admin', 'owner'],
+            'delete_items': ['member', 'admin', 'owner'],
+            'manage_columns': ['member', 'admin', 'owner'],
+            'group_ungroup': ['member', 'admin', 'owner'],
+            'create_board': ['admin', 'owner'],
+            'delete_board': ['admin', 'owner'],
+            'invite_members': ['admin', 'owner'],
+            'create_sub_workspace': ['admin', 'owner'],
+            'manage_feedback': ['viewer', 'member', 'admin', 'owner']
+        };
 
-            case 'manage_feedback': // Viewers can give feedback
-                return true;
-
-            case 'create_board': // Member can create board? Request says "Member ... can create Sub Workspace". Implies boards too?
-                // Request says "Member... can create Sub Workspace". It doesn't explicitly say they can create Boards, but usually yes.
-                // "Editor changed from Hidden to Read-only all, but can Add or Delete Item including add or delete Column... Member can create Sub Workspace too"
-                // It says "Editor changed to Read-only all" -> usually usually refers to Board Settings/Structure (Rename Board, Delete Board).
-                // Let's assume Member CANNOT create/delete BOARD at top level, but potentially inside SubWorkspace?
-                // For now, let's keep 'create_board' as Admin/Owner only to start safe, or Member if we treat them as "Workspace Members".
-                // "Member of that Workspace... can create Sub Workspace too".
-                // Let's allow Member to create SubWorkspace.
-                return role === 'admin' || role === 'member';
-
-            case 'delete_board':
-            case 'invite_members':
-                return role === 'admin';
-
-            case 'create_sub_workspace':
-                return role === 'admin' || role === 'member';
-
-            case 'manage_columns':
-            case 'group_ungroup': // Assuming Member can group/ungroup if they can manage columns?
-                // "Add or delete Column" specified. Grouping logic usually follows.
-                return role === 'admin' || role === 'member';
-
-            case 'edit_items':
-            case 'delete_items':
-                return role === 'admin' || role === 'member';
-
-            default:
-                return false;
-        }
+        return permissions[action]?.includes(userRole) || false;
     };
 
-    return { can, role };
+    return { can, role: userRole };
 };

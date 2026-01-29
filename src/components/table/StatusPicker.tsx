@@ -13,7 +13,7 @@ interface StatusPickerProps {
     position: { top: number; bottom: number; left: number; width: number };
 }
 
-export const StatusPicker = ({ columnId, options, onSelect, onClose, position }: StatusPickerProps) => {
+export const StatusPicker = ({ columnId, options = [], onSelect, onClose, position }: StatusPickerProps) => {
     const menuRef = useRef<HTMLDivElement>(null);
     const [isEditingLabels, setIsEditingLabels] = useState(false);
 
@@ -43,6 +43,8 @@ export const StatusPicker = ({ columnId, options, onSelect, onClose, position }:
         '#00c875', '#e2445c', '#fdab3d', '#0086c0', '#579bfc',
         '#a25ddc', '#ffcb00', '#c4c4c4', '#333333', '#784bd1'
     ];
+
+    const safeOptions = Array.isArray(options) ? options : [];
 
     const handleAddLabel = () => {
         addColumnOption(columnId, 'New Label', '#c4c4c4');
@@ -82,7 +84,7 @@ export const StatusPicker = ({ columnId, options, onSelect, onClose, position }:
                 }} />
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '300px', overflowY: 'auto' }}>
-                    {options.map((opt) => (
+                    {safeOptions.map((opt) => (
                         <div key={opt.id} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                             {/* Color Swatch / Paint Bucket - simplified for MVP to just cycle or random? 
                                 Let's make it a small square that triggers a color menu? 
@@ -214,7 +216,7 @@ export const StatusPicker = ({ columnId, options, onSelect, onClose, position }:
                 borderTop: '1px solid hsl(var(--color-border))',
             }} />
 
-            {options.map((opt) => (
+            {safeOptions.map((opt) => (
                 <button
                     key={opt.id}
                     onClick={() => onSelect(opt.label)}

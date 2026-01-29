@@ -83,7 +83,8 @@ export const Cell = ({ item, column }: { item: Item, column: Column }) => {
     let textColor = 'inherit';
 
     if (column.type === 'status') {
-        const statusOption = column.options?.find(opt => opt.label === value);
+        const options = Array.isArray(column.options) ? column.options : [];
+        const statusOption = options.find(opt => opt.label === value);
         // Fallback for "Not Started" or empty
         const color = statusOption?.color || (value ? '#c4c4c4' : '#c4c4c4');
 
@@ -208,7 +209,8 @@ export const Cell = ({ item, column }: { item: Item, column: Column }) => {
                 >
                     {selectedLabels.length > 0 ? (
                         selectedLabels.map((label: string, idx: number) => {
-                            const opt = column.options?.find(o => o.label === label);
+                            const options = Array.isArray(column.options) ? column.options : [];
+                            const opt = options.find(o => o.label === label);
                             return (
                                 <div key={idx} style={{
                                     backgroundColor: opt?.color || '#a0c4ff',
