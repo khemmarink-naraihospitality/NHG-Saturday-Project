@@ -161,16 +161,10 @@ export const StatusPicker = ({ columnId, options, onSelect, onClose, position }:
                     <button
                         onClick={() => setIsEditingLabels(false)}
                         style={{
-                            backgroundColor: 'hsl(var(--color-brand-primary))', // Assuming blue/brand
-                            color: 'white', // But screenshot text looked black? Check screenshot.
-                            // Screenshot: "Apply" is black text, no bg? Or white bg? 
-                            // Ah wait, bottom of screenshot says "Apply". Usually blue button or text.
-                            // Let's use standard button.
+                            backgroundColor: 'hsl(var(--color-brand-primary))',
                             flex: 1,
                             border: 'none',
-                            borderRadius: '4px', // text button style in screenshot?
-                            // Actually it looks like a text action centered "Apply". 
-                            // Let's make it a clean text button.
+                            borderRadius: '4px',
                             background: 'transparent',
                             fontSize: '14px',
                             fontWeight: 500,
