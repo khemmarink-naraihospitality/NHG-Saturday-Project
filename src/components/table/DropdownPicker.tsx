@@ -196,18 +196,24 @@ export const DropdownPicker = ({ columnId, options, currentValue = [], position,
                                 <input
                                     type="color"
                                     value={opt.color}
-                                    onChange={(e) => updateColumnOption(columnId, opt.label, { color: e.target.value })}
+                                    onChange={(e) => {
+                                        if (opt.id) updateColumnOption(columnId, opt.id, { color: e.target.value });
+                                    }}
                                     style={{ width: '20px', height: '20px', border: 'none', padding: 0, background: 'none' }}
                                 />
                                 <input
                                     type="text"
                                     value={opt.label}
-                                    onChange={(e) => updateColumnOption(columnId, opt.label, { label: e.target.value })}
+                                    onChange={(e) => {
+                                        if (opt.id) updateColumnOption(columnId, opt.id, { label: e.target.value });
+                                    }}
                                     className="cell-input"
                                     style={{ flex: 1, padding: '4px 8px' }}
                                 />
                                 <button
-                                    onClick={() => deleteColumnOption(columnId, opt.label)}
+                                    onClick={() => {
+                                        if (opt.id) deleteColumnOption(columnId, opt.id);
+                                    }}
                                     className="icon-btn danger"
                                 >
                                     <Trash2 size={14} />

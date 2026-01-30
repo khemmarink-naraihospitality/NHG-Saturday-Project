@@ -11,6 +11,8 @@ import { BatchActionsBar } from './components/table/BatchActionsBar';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { LoginPage } from './pages/LoginPage';
 
+import { HomePage } from './pages/HomePage';
+
 function MainApp() {
   const { activeBoardId, boards, activeItemId, setActiveItem, loadUserData, isLoading, subscribeToRealtime, unsubscribeFromRealtime, activeWorkspaceId } = useBoardStore();
   const activeBoard = boards.find(b => b.id === activeBoardId);
@@ -51,14 +53,8 @@ function MainApp() {
             </div>
           </>
         ) : (
-          <div style={{
-            flex: 1,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: 'hsl(var(--color-text-tertiary))'
-          }}>
-            Select or create a board
+          <div style={{ flex: 1, overflow: 'auto' }}>
+            <HomePage />
           </div>
         )}
 

@@ -46,8 +46,24 @@ export const usePermission = () => {
                 return;
             }
 
-            // 2. Check board membership (Prioritize this! Avoids workspace_members 406 for Guests)
+            // 2. Check board membership (Optimized: Use pre-fetched members)
             if (activeBoardId) {
+                const activeMembers = useBoardStore.getState().activeBoardMembers;
+
+                // If we have members loaded for the current board, use them!
+                // Note: We might want to ensure activeBoardMembers actually corresponds to activeBoardId
+                // The store update logic ensures they are set together, but let's be safe.
+                if (activeMembers.length > 0) {
+                    const member = activeMembers.find(m => m.user_id === user.id);
+                    if (member) {
+                        setUserRole(member.role);
+                        return;
+                    }
+                    // If members are loaded but user is not in list -> they are likely not a member (or just viewer if public?)
+                    // prioritizing explicit member check.
+                }
+
+                // Fallback to async check if for some reason local state is empty (shouldn't happen with new logic)
                 try {
                     const { data: boardMember, error: bmError } = await supabase
                         .from('board_members')

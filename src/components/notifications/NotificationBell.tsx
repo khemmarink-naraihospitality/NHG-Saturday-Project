@@ -16,8 +16,9 @@ interface Notification {
 
 export const NotificationBell = () => {
     const { user } = useAuth();
-    const { loadUserData } = useBoardStore();
+    const { loadUserData, setActiveBoard, setActiveWorkspace } = useBoardStore();
     const [notifications, setNotifications] = useState<Notification[]>([]);
+
     const [showDropdown, setShowDropdown] = useState(false);
     const [unreadCount, setUnreadCount] = useState(0);
     const dropdownRef = useRef<HTMLDivElement>(null);
@@ -238,7 +239,17 @@ export const NotificationBell = () => {
                                         backgroundColor: notification.is_read ? 'transparent' : '#f0f7ff',
                                         cursor: 'pointer'
                                     }}
-                                    onClick={() => !notification.is_read && markAsRead(notification.id)}
+                                    onClick={() => {
+                                        if (!notification.is_read) markAsRead(notification.id);
+                                        // Navigation logic
+                                        if (notification.data?.board_id) {
+                                            setActiveBoard(notification.data.board_id);
+                                            setShowDropdown(false);
+                                        } else if (notification.data?.workspace_id) {
+                                            setActiveWorkspace(notification.data.workspace_id);
+                                            setShowDropdown(false);
+                                        }
+                                    }}
                                 >
                                     <div style={{
                                         display: 'flex',
@@ -273,8 +284,8 @@ export const NotificationBell = () => {
                                         </div>
                                     )}
 
-                                    {/* Workspace/Board Invite Actions */}
-                                    {(notification.type === 'workspace_invite' || notification.type === 'board_invite') && !notification.is_read && (
+                                    {/* Workspace/Board Invite Actions - Show always if invite type */}
+                                    {(notification.type === 'workspace_invite' || notification.type === 'board_invite') && (
                                         <div style={{
                                             display: 'flex',
                                             gap: '8px',

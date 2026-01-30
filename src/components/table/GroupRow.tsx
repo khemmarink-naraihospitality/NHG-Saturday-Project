@@ -146,6 +146,7 @@ export const GroupRow = ({ data, isCollapsed, onToggle }: { data: any, isCollaps
                         autoFocus
                         value={editValue}
                         onChange={(e) => setEditValue(e.target.value)}
+                        onFocus={(e) => e.target.select()}
                         onBlur={handleSave}
                         onKeyDown={handleKeyDown}
                         style={{

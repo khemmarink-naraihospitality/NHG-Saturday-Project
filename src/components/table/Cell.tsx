@@ -1,14 +1,18 @@
 import { useState, useRef, useEffect } from 'react';
-import { Check, Calendar, Hash, Link2, Type, Users } from 'lucide-react';
+import { Check, Calendar, Hash, Link2, Type } from 'lucide-react';
 import type { Item, Column } from '../../types';
 import { useBoardStore } from '../../store/useBoardStore';
 import { usePermission } from '../../hooks/usePermission';
 import { StatusPicker } from './StatusPicker';
 import { DropdownPicker } from './DropdownPicker';
+import { PersonPicker } from './PersonPicker';
+
 
 export const Cell = ({ item, column }: { item: Item, column: Column }) => {
     const value = item.values[column.id];
     const updateItemValue = useBoardStore(state => state.updateItemValue);
+    const { activeBoardMembers } = useBoardStore();
+
     const [isEditing, setIsEditing] = useState(false);
     const [editValue, setEditValue] = useState(value);
     const cellRef = useRef<HTMLDivElement>(null);
@@ -239,6 +243,85 @@ export const Cell = ({ item, column }: { item: Item, column: Column }) => {
                         onSelect={(newValues) => {
                             updateItemValue(item.id, column.id, newValues);
                             // Don't close immediately allows multi selection
+                        }}
+                        onClose={() => {
+                            setIsEditing(false);
+                            setPickerPos(null);
+                        }}
+                    />
+                )}
+            </>
+        );
+    }
+
+    // Person Rendering
+    if (column.type === 'people') {
+        const selectedIds = Array.isArray(value) ? value : (value ? [value] : []);
+
+        return (
+            <>
+                <div
+                    ref={cellRef}
+                    className="table-cell"
+                    onClick={() => !isEditing && startEditing()}
+                    style={{
+                        width: '100%',
+                        height: '100%',
+                        borderRight: '1px solid hsl(var(--color-cell-border))',
+                        padding: '4px 8px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        cursor: 'pointer',
+                        overflow: 'hidden',
+                        justifyContent: selectedIds.length > 0 ? 'flex-start' : 'center'
+                    }}
+                >
+                    {selectedIds.length > 0 ? (
+                        selectedIds.map((userId: string, idx: number) => {
+                            const member = activeBoardMembers.find(m => m.user_id === userId);
+                            const initial = member ? (member.profiles.full_name || member.profiles.email || '?')[0].toUpperCase() : '?';
+
+                            return (
+                                <div key={idx} style={{
+                                    width: '24px',
+                                    height: '24px',
+                                    borderRadius: '50%',
+                                    backgroundColor: member?.profiles?.avatar_url ? 'transparent' : '#0073ea',
+                                    color: 'white',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    fontSize: '11px',
+                                    fontWeight: 600,
+                                    border: '1px solid white',
+                                    marginLeft: idx > 0 ? '-8px' : '0', // Overlap effect
+                                    zIndex: 10 - idx,
+                                    overflow: 'hidden'
+                                }} title={member?.profiles?.full_name || userId}>
+                                    {member?.profiles?.avatar_url ? (
+                                        <img src={member.profiles.avatar_url} alt="" style={{ width: '100%', height: '100%' }} />
+                                    ) : (
+                                        initial
+                                    )}
+                                </div>
+                            );
+                        })
+                    ) : (
+                        <span style={{ color: 'hsl(var(--color-text-tertiary))', fontSize: '18px', opacity: 0.5 }}>+</span>
+                    )}
+                </div>
+
+                {isEditing && pickerPos && (
+                    <PersonPicker
+                        currentValue={selectedIds}
+                        position={pickerPos}
+                        onSelect={(userId) => {
+                            // Toggle selection
+                            const newValues = selectedIds.includes(userId)
+                                ? selectedIds.filter((id: string) => id !== userId)
+                                : [...selectedIds, userId];
+                            updateItemValue(item.id, column.id, newValues);
                         }}
                         onClose={() => {
                             setIsEditing(false);
@@ -484,7 +567,6 @@ export const Cell = ({ item, column }: { item: Item, column: Column }) => {
                 <div style={{ color: 'hsl(var(--color-text-tertiary))', opacity: 0.5, display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
                     {column.type === 'number' && <Hash size={16} />}
                     {column.type === 'text' && <Type size={16} />}
-                    {column.type === 'people' && <Users size={16} />}
                     {/* Fallback for others if any */}
                     {!['number', 'text', 'people'].includes(column.type) && '-'}
                 </div>

@@ -120,6 +120,7 @@ export const Sidebar = () => {
 
     const [isCreating, setIsCreating] = useState(false);
     const [isCreatingWorkspace, setIsCreatingWorkspace] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const [newBoardTitle, setNewBoardTitle] = useState('');
     const [newWorkspaceTitle, setNewWorkspaceTitle] = useState('');
 
@@ -191,12 +192,17 @@ export const Sidebar = () => {
         }
     };
 
-    const handleCreateWorkspace = (e: React.FormEvent) => {
+    const handleCreateWorkspace = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (newWorkspaceTitle.trim()) {
-            addWorkspace(newWorkspaceTitle);
-            setNewWorkspaceTitle('');
-            setIsCreatingWorkspace(false);
+        if (newWorkspaceTitle.trim() && !isSubmitting) {
+            setIsSubmitting(true);
+            try {
+                await addWorkspace(newWorkspaceTitle);
+                setNewWorkspaceTitle('');
+                setIsCreatingWorkspace(false);
+            } finally {
+                setIsSubmitting(false);
+            }
         }
     };
 
@@ -233,6 +239,15 @@ export const Sidebar = () => {
                     <span style={{ fontSize: '20px', fontWeight: 400, color: '#9699aa' }}>Workera</span>
                 </div>
 
+                <div
+                    className={clsx('sidebar-item', { active: activeBoardId === null })}
+                    onClick={() => setActiveBoard(null)}
+                    style={{ marginBottom: '12px', cursor: 'pointer' }}
+                >
+                    <Home size={16} />
+                    <span className="sidebar-item-label">Home</span>
+                </div>
+
                 {/* Tab Switcher */}
                 <div style={{
                     display: 'flex',
@@ -256,7 +271,8 @@ export const Sidebar = () => {
                             fontWeight: 500,
                             cursor: 'pointer',
                             transition: 'all 0.2s',
-                            boxShadow: activeTab === 'my-workspaces' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
+                            boxShadow: activeTab === 'my-workspaces' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                            whiteSpace: 'nowrap'
                         }}
                     >
                         My Workspaces
@@ -278,7 +294,8 @@ export const Sidebar = () => {
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            gap: '6px'
+                            gap: '6px',
+                            whiteSpace: 'nowrap'
                         }}
                     >
                         <Users size={14} />
@@ -568,9 +585,17 @@ export const Sidebar = () => {
                                     </button>
                                     <button
                                         type="submit"
-                                        style={{ padding: '6px 12px', background: '#0073ea', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                                        disabled={isSubmitting}
+                                        style={{
+                                            padding: '6px 12px',
+                                            background: isSubmitting ? '#ccc' : '#0073ea',
+                                            color: 'white',
+                                            border: 'none',
+                                            borderRadius: '4px',
+                                            cursor: isSubmitting ? 'not-allowed' : 'pointer'
+                                        }}
                                     >
-                                        Create
+                                        {isSubmitting ? 'Creating...' : 'Create'}
                                     </button>
                                 </div>
                             </form>

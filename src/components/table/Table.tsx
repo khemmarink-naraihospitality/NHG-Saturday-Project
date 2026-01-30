@@ -218,6 +218,28 @@ export const Table = ({ boardId }: { boardId: string }) => {
                         position: 'relative',
                     }}
                 >
+                    {/* Permission Loading Overlay */}
+                    {useBoardStore(state => state.isLoadingMembers) && (
+                        <div style={{
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
+                            backgroundColor: 'rgba(255, 255, 255, 0.6)',
+                            backdropFilter: 'blur(2px)',
+                            zIndex: 9999,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: '#676879',
+                            fontSize: '14px',
+                            fontWeight: 500
+                        }}>
+                            Checking permissions...
+                        </div>
+                    )}
+
                     <SortableContext
                         items={virtualItems.map(i => i.id)}
                         strategy={verticalListSortingStrategy}

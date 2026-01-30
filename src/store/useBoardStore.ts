@@ -11,6 +11,8 @@ interface BoardState {
     activeWorkspaceId: string;
     workspaces: Workspace[];
     sharedBoardIds: string[];
+    activeBoardMembers: any[]; // Store members of the active board
+
 
     // Async State
     isLoading: boolean;
@@ -20,7 +22,7 @@ interface BoardState {
     // Actions
     addBoard: (title: string, subWorkspaceId?: string) => Promise<void>;
     deleteBoard: (id: string) => Promise<void>;
-    setActiveBoard: (id: string) => void;
+    setActiveBoard: (id: string | null) => void;
     updateBoardTitle: (boardId: string, newTitle: string) => Promise<void>;
     duplicateBoard: (boardId: string) => Promise<void>;
     moveBoard: (activeId: string, overId: string) => void;
@@ -103,6 +105,7 @@ interface BoardState {
     getBoardMembers: (boardId: string) => Promise<any[]>;
     updateMemberRole: (memberId: string, newRole: string, type: 'workspace' | 'board') => Promise<void>;
     removeMember: (memberId: string, type: 'workspace' | 'board') => Promise<void>;
+    isLoadingMembers: boolean;
 }
 
 
@@ -111,6 +114,9 @@ export const useBoardStore = create<BoardState>((set, get) => ({
     boards: [],
     workspaces: [],
     sharedBoardIds: [],
+    activeBoardMembers: [], // Initialize empty
+    isLoadingMembers: false,
+
     activeBoardId: null,
     activeWorkspaceId: '',
     selectedItemIds: [],
@@ -294,14 +300,29 @@ export const useBoardStore = create<BoardState>((set, get) => ({
                 };
             });
 
+            // Determine Active Workspace
+            const lastWorkspaceId = localStorage.getItem('lastActiveWorkspaceId');
+            const validWorkspace = workspaces.find(w => w.id === lastWorkspaceId);
+            const activeWorkspaceId = validWorkspace ? validWorkspace.id : (workspaces[0]?.id || '');
+
+            // Determine Active Board
+            const lastBoardId = localStorage.getItem('lastActiveBoardId');
+            const validBoard = fullBoards.find(b => b.id === lastBoardId);
+            const activeBoardId = validBoard ? validBoard.id : null;
+
             set({
                 workspaces: workspaces.map(w => ({ id: w.id, title: w.title, order: w.order, owner_id: w.owner_id })),
                 boards: fullBoards,
                 sharedBoardIds: sharedBoardsData?.map((r: any) => r.board_id) || [],
                 isLoading: false,
-                activeWorkspaceId: workspaces[0]?.id || '',
-                activeBoardId: fullBoards[0]?.id || null
+                activeWorkspaceId,
+                activeBoardId
             });
+
+            // If we restored a board, fetch its members
+            if (activeBoardId) {
+                get().setActiveBoard(activeBoardId);
+            }
 
         } catch (e) {
             console.error(e);
@@ -309,8 +330,22 @@ export const useBoardStore = create<BoardState>((set, get) => ({
         }
     },
 
-    setActiveBoard: (id) => set({ activeBoardId: id }),
-    setActiveWorkspace: (id) => set({ activeWorkspaceId: id }),
+    setActiveBoard: async (id) => {
+        set({ activeBoardId: id });
+        localStorage.setItem('lastActiveBoardId', id || '');
+        if (id) {
+            set({ isLoadingMembers: true });
+            // Fetch members immediately for permission check
+            const members = await get().getBoardMembers(id);
+            set({ activeBoardMembers: members, isLoadingMembers: false });
+        } else {
+            set({ activeBoardMembers: [], isLoadingMembers: false });
+        }
+    },
+    setActiveWorkspace: (id) => {
+        set({ activeWorkspaceId: id });
+        localStorage.setItem('lastActiveWorkspaceId', id);
+    },
     setActiveItem: (id) => set({ activeItemId: id }),
     setSearchQuery: (q) => set({ searchQuery: q }),
 
@@ -364,6 +399,31 @@ export const useBoardStore = create<BoardState>((set, get) => ({
         await supabase.from('boards').insert({ id: boardId, workspace_id: activeWorkspaceId, title, order: boards.length });
         await supabase.from('groups').insert(defaultGroups.map(g => ({ id: g.id, board_id: boardId, title: g.title, color: g.color, order: g.order })));
         await supabase.from('columns').insert(defaultColumns.map(c => ({ id: c.id, board_id: boardId, title: c.title, type: c.type, order: c.order, width: c.width, options: c.options ? JSON.stringify(c.options) : '{}' })));
+
+        // Add creator as owner in board_members
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+            await supabase.from('board_members').insert({
+                board_id: boardId,
+                user_id: user.id,
+                role: 'owner'
+            });
+
+            // FIX: Update local activeBoardMembers immediately so permissions work
+            const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single();
+            set({
+                activeBoardMembers: [{
+                    id: uuidv4(), // Temporary ID for the member record
+                    user_id: user.id,
+                    role: 'owner',
+                    profiles: profile || { email: user.email, id: user.id, full_name: user.user_metadata?.full_name }
+                }]
+            });
+        }
+
+        // Refresh fully to get server-generated IDs/timestamps eventually
+        get().loadUserData(true);
+
     },
     deleteBoard: async (id) => {
         set(state => ({ boards: state.boards.filter(b => b.id !== id), activeBoardId: state.activeBoardId === id ? null : state.activeBoardId }));
@@ -802,6 +862,11 @@ export const useBoardStore = create<BoardState>((set, get) => ({
         if (error) {
             console.error('Error fetching board members:', error);
             return [];
+        }
+
+        // Update activeBoardMembers if this is the active board
+        if (get().activeBoardId === boardId) {
+            set({ activeBoardMembers: data || [] });
         }
 
         return data || [];

@@ -2,7 +2,7 @@
 
 /* Sidebar */
 .sidebar {
-    width: 240px;
+    width: 260px;
     /* Slightly narrower like the reference */
     background-color: hsl(var(--color-bg-surface));
     border-right: 1px solid hsl(var(--color-border));
