@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { useRef, useMemo, useState } from 'react';
+import { useRef, useMemo, useState, useEffect } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useBoardStore } from '../../store/useBoardStore';
 import { usePermission } from '../../hooks/usePermission';
@@ -49,12 +49,18 @@ const SortableItemWrapper = ({
         isDragging
     } = useSortable({ id, disabled });
 
-    const style = {
+    const style: React.CSSProperties = {
         transform: CSS.Transform.toString(transform),
         transition,
         opacity: isDragging ? 0.3 : 1,
         ...propStyle,
-        height: '100%' // Ensure full height
+        height: '100%',
+        width: '100%',
+        position: 'relative',
+        // Prevent gaps during drag
+        margin: 0,
+        padding: 0,
+        boxSizing: 'border-box'
     };
 
     return (
@@ -160,13 +166,19 @@ export const Table = ({ boardId }: { boardId: string }) => {
         count: virtualItems.length,
         getScrollElement: () => parentRef.current,
         estimateSize: (index) => {
-            const type = virtualItems[index].type;
+            const type = virtualItems[index]?.type;
             if (type === 'group') return 60;
+            if (type === 'header') return 40;
             if (type === 'footer') return 80;
-            return 40;
+            return 40; // item
         },
         overscan: 5,
     });
+
+    // Force remeasure after items change to prevent gaps
+    useEffect(() => {
+        rowVirtualizer.measure();
+    }, [virtualItems, rowVirtualizer]);
 
     const sensors = useSensors(
         useSensor(PointerSensor, {

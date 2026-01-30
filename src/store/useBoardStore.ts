@@ -761,25 +761,27 @@ export const useBoardStore = create<BoardState>((set, get) => ({
             const overItem = board.items.find(i => i.id === overId);
             if (!overItem) return;
 
-            const activeIndex = board.items.findIndex(i => i.id === activeId);
-            const overIndex = board.items.findIndex(i => i.id === overId);
-
             if (activeItem.groupId === overItem.groupId) {
-                // Same Group: Just reorder
+                // Same Group: Just reorder using arrayMove
+                const activeIndex = board.items.findIndex(i => i.id === activeId);
+                const overIndex = board.items.findIndex(i => i.id === overId);
                 newItems = arrayMove(newItems, activeIndex, overIndex);
             } else {
-                // Different Group: Move and reorder
+                // Different Group: Move to new group
                 newGroupId = overItem.groupId;
 
-                // Remove the active item first
-                newItems.splice(activeIndex, 1);
+                // Remove active item from array
+                newItems = newItems.filter(i => i.id !== activeId);
 
-                // Recalculate the over index after removal
-                const adjustedOverIndex = activeIndex < overIndex ? overIndex - 1 : overIndex;
+                // Find where to insert in the new group
+                // We want to insert it right before the overItem
+                const overIndexInNewArray = newItems.findIndex(i => i.id === overId);
 
-                // Insert the item with new group ID at the adjusted position
+                // Create moved item with new group
                 const movedItem = { ...activeItem, groupId: newGroupId };
-                newItems.splice(adjustedOverIndex, 0, movedItem);
+
+                // Insert at the position of overItem (pushing overItem down)
+                newItems.splice(overIndexInNewArray, 0, movedItem);
             }
         }
 
