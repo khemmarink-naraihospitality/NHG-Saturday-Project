@@ -612,7 +612,24 @@ export const useBoardStore = create<BoardState>((set, get) => ({
         const currentBoard = boards.find(b => b.id === activeBoardId);
         if (!currentBoard) return;
 
-        const values: ItemValue = {}; // Populate default values if needed
+        const values: ItemValue = {};
+
+        // Populate Default Values
+        currentBoard.columns.forEach(col => {
+            if (col.type === 'status') {
+                const options = col.options || [];
+                // Priority: To Do -> New -> Working on it -> Last Option (usually Gray/Default)
+                const defaultOpt = options.find(o => o.label === 'To Do')
+                    || options.find(o => o.label === 'New')
+                    || options.find(o => o.label.includes('Working'))
+                    || options[options.length - 1]; // Fallback to last option
+
+                if (defaultOpt) {
+                    values[col.id] = defaultOpt.label;
+                }
+            }
+        });
+
         const newItem: Item = { id: newItemId, title, groupId, values, updates: [] };
 
         set(state => ({
