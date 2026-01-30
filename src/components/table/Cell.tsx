@@ -337,7 +337,8 @@ export const Cell = ({ item, column }: { item: Item, column: Column }) => {
     if (column.type === 'date') {
         const formatDate = (dateStr: string) => {
             if (!dateStr) return '';
-            const date = new Date(dateStr);
+            const [y, m, d] = dateStr.split('-').map(Number);
+            const date = new Date(y, m - 1, d);
             const today = new Date();
             const isCurrentYear = date.getFullYear() === today.getFullYear();
 
