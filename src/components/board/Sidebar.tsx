@@ -183,14 +183,7 @@ export const Sidebar = () => {
         return () => document.removeEventListener('click', handleClickOutside);
     }, []);
 
-    const handleCreate = (e: React.FormEvent) => {
-        e.preventDefault();
-        if (newBoardTitle.trim()) {
-            addBoard(newBoardTitle);
-            setNewBoardTitle('');
-            setIsCreating(false);
-        }
-    };
+
 
     const handleCreateWorkspace = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -606,16 +599,40 @@ export const Sidebar = () => {
 
             <div className="sidebar-content">
                 {isCreating && (
-                    <form onSubmit={handleCreate} className="sidebar-item-form">
-                        <input
-                            autoFocus
-                            type="text"
-                            placeholder="Board Name"
-                            value={newBoardTitle}
-                            onChange={(e) => setNewBoardTitle(e.target.value)}
-                            onBlur={() => setIsCreating(false)}
-                        />
-                    </form>
+                    <div className="sidebar-item" style={{ paddingLeft: '12px', cursor: 'default' }}>
+                        <div style={{ width: '22px' }} /> {/* Spacer for alignment with GripVertical */}
+                        <LayoutDashboard size={16} color="#0073ea" />
+                        <form
+                            onSubmit={(e) => {
+                                e.preventDefault();
+                                if (newBoardTitle.trim()) {
+                                    addBoard(newBoardTitle);
+                                    setNewBoardTitle('');
+                                    setIsCreating(false);
+                                }
+                            }}
+                            style={{ flex: 1, display: 'flex' }}
+                        >
+                            <input
+                                autoFocus
+                                type="text"
+                                placeholder="New Board"
+                                className="sidebar-item-input"
+                                value={newBoardTitle}
+                                onChange={(e) => setNewBoardTitle(e.target.value)}
+                                onBlur={() => {
+                                    if (newBoardTitle.trim()) {
+                                        addBoard(newBoardTitle);
+                                        setNewBoardTitle('');
+                                    }
+                                    setIsCreating(false);
+                                }}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Escape') setIsCreating(false);
+                                }}
+                            />
+                        </form>
+                    </div>
                 )}
 
                 <DndContext
