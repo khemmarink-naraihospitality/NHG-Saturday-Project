@@ -3,7 +3,7 @@ import { DayPicker } from 'react-day-picker';
 import { useRef, useEffect, useState } from 'react';
 import 'react-day-picker/style.css';
 import { createPortal } from 'react-dom';
-import { ChevronLeft, ChevronRight, Check } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface DatePickerProps {
     date: Date | undefined;

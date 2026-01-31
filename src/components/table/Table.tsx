@@ -268,7 +268,6 @@ export const Table = ({ boardId }: { boardId: string }) => {
                             const isGroup = vItem.type === 'group';
                             const isHeader = vItem.type === 'header';
                             const isFooter = vItem.type === 'footer';
-                            const isItem = vItem.type === 'item';
 
                             const isDragging = activeId === vItem.id;
                             return (

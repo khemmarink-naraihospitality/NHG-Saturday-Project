@@ -113,6 +113,9 @@ interface BoardState {
     searchUsers: (query: string) => Promise<any[]>;
     inviteAndAssignUser: (boardId: string, userId: string, role: string, itemId: string, columnId: string) => Promise<void>;
     createNotification: (userId: string, type: string, content: string, entityId: string) => Promise<void>;
+
+    // Realtime
+    realtimeSubscription: any; // Using any for proper supabase channel type without heavy imports for now
 }
 
 
@@ -133,6 +136,7 @@ export const useBoardStore = create<BoardState>((set, get) => ({
     isLoading: true,
     isSyncing: false,
     error: null,
+    realtimeSubscription: null,
 
     loadUserData: async (isSilent = false) => {
         if (!isSilent) {
@@ -283,11 +287,11 @@ export const useBoardStore = create<BoardState>((set, get) => ({
                         groups: groupsMsg.map(g => ({
                             id: g.id, title: g.title, color: g.color,
                             items: itemsMsg.filter(i => i.group_id === g.id).map(i => ({
-                                id: i.id, title: i.title, groupId: g.id, values: i.values, updates: []
+                                id: i.id, title: i.title, groupId: g.id, boardId: boardId, values: i.values, updates: []
                             }))
                         })),
                         items: itemsMsg.map(i => ({
-                            id: i.id, title: i.title, groupId: i.group_id, values: i.values, updates: []
+                            id: i.id, title: i.title, groupId: i.group_id, boardId: boardId, values: i.values, updates: []
                         })),
                         itemColumnTitle: 'Item',
                         itemColumnWidth: 280
@@ -698,7 +702,8 @@ export const useBoardStore = create<BoardState>((set, get) => ({
 
         if (!currentBoard) return;
 
-        const targetGroup = currentBoard.groups.find(g => g.id === groupId);
+        if (!currentBoard) return;
+
 
         const values: ItemValue = {};
 
@@ -725,7 +730,7 @@ export const useBoardStore = create<BoardState>((set, get) => ({
             });
         }
 
-        const newItem: Item = { id: newItemId, title, groupId, values, updates: [] };
+        const newItem: Item = { id: newItemId, title, groupId, boardId: activeBoardId, values, updates: [] };
 
         set(state => ({
             boards: state.boards.map(b => {
@@ -996,7 +1001,7 @@ export const useBoardStore = create<BoardState>((set, get) => ({
             .on('postgres_changes', { event: '*', schema: 'public', table: 'groups' }, () => get().loadUserData(true))
             .on('postgres_changes', { event: '*', schema: 'public', table: 'columns' }, () => get().loadUserData(true))
             .on('postgres_changes', { event: '*', schema: 'public', table: 'items' }, () => get().loadUserData(true))
-            .subscribe((status, err) => {
+            .subscribe((status) => {
                 console.log('[Realtime] Subscription status:', status);
 
                 if (status === 'SUBSCRIBED') {
