@@ -1004,7 +1004,7 @@ export const useBoardStore = create<BoardState>((set, get) => ({
 
     // --- Task Updates ---
     addUpdate: async (itemId, content, author) => {
-        const { boards, activeBoardId, activeBoardMembers, createNotification } = get();
+        const { activeBoardId, activeBoardMembers, createNotification } = get();
         const newUpdate = {
             id: uuidv4(),
             content,
