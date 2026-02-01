@@ -55,11 +55,11 @@ export const BoardHeader = ({ boardId }: BoardHeaderProps) => {
 
     return (
         <header style={{
-            height: '64px',
+            minHeight: '80px', // Increased from 64px for breathing room
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            padding: '0 32px',
+            padding: '16px 32px', // Added vertical padding
             backgroundColor: 'hsl(var(--color-bg-surface))',
             borderBottom: '1px solid hsl(var(--color-border))'
         }}>
@@ -106,10 +106,129 @@ export const BoardHeader = ({ boardId }: BoardHeaderProps) => {
                     </h1>
                 )}
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
-                    <p style={{ fontSize: '13px', color: 'hsl(var(--color-text-tertiary))' }}>Main Table</p>
-                    <span style={{ fontSize: '10px', color: 'hsl(var(--color-border))' }}>●</span>
-                    <p style={{ fontSize: '13px', color: 'hsl(var(--color-text-tertiary))' }}>{board.items.length} items</p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '4px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <p style={{ fontSize: '13px', color: 'hsl(var(--color-text-tertiary))' }}>Main Table</p>
+                        <span style={{ fontSize: '10px', color: 'hsl(var(--color-border))' }}>●</span>
+                        <p style={{ fontSize: '13px', color: 'hsl(var(--color-text-tertiary))' }}>{board.items.length} items</p>
+                    </div>
+
+                    {/* Members & Owner Display */}
+                    {(() => {
+                        const { activeBoardMembers } = useBoardStore.getState();
+                        const owner = activeBoardMembers.find(m => m.role === 'owner' || m.role === 'workspace_owner');
+                        // Filter out owner from general members list to avoid duplication
+                        // If owner is workspace_owner, they might appear as member too if logic duplicated, but usually unique by ID.
+                        const otherMembers = activeBoardMembers.filter(m => m.user_id !== owner?.user_id);
+                        const displayMembers = otherMembers.slice(0, 3);
+                        const overflowCount = otherMembers.length - 3;
+
+                        return (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', borderLeft: '1px solid hsl(var(--color-border))', paddingLeft: '12px' }}>
+                                {/* Owner */}
+                                {owner && (
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }} title={`Board Owner: ${owner.profiles?.full_name || owner.profiles?.email}`}>
+                                        <div style={{ position: 'relative' }}>
+                                            <div style={{
+                                                width: '24px', height: '24px', borderRadius: '50%',
+                                                backgroundColor: '#e0e7ff', overflow: 'hidden',
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                fontSize: '11px', color: '#3730a3', fontWeight: 'bold',
+                                                border: '2px solid white',
+                                                boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                                            }}>
+                                                {owner.profiles?.avatar_url ? (
+                                                    <img src={owner.profiles.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                ) : (
+                                                    (owner.profiles?.full_name?.[0] || owner.profiles?.email?.[0] || '?').toUpperCase()
+                                                )}
+                                            </div>
+                                            <div style={{
+                                                position: 'absolute', bottom: -2, right: -2,
+                                                width: '10px', height: '10px', backgroundColor: '#fcd34d',
+                                                borderRadius: '50%', border: '1px solid white',
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                            }} title="Owner">
+                                                <svg width="6" height="6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#78350f' }}><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path></svg>
+                                            </div>
+                                        </div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                                            <span style={{ fontSize: '12px', fontWeight: 500, color: 'hsl(var(--color-text-secondary))', lineHeight: 1 }}>
+                                                {owner.profiles?.full_name || 'Owner'}
+                                            </span>
+                                            <span style={{ fontSize: '9px', color: 'hsl(var(--color-text-tertiary))', marginTop: '2px' }}>
+                                                Owner
+                                            </span>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Members Stack */}
+                                {(otherMembers.length > 0 || can('create_board')) && (
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', marginLeft: '8px' }}>
+                                            {displayMembers.map((m, i) => (
+                                                <div key={m.id || m.user_id} style={{
+                                                    width: '24px', height: '24px', borderRadius: '50%',
+                                                    backgroundColor: '#f3f4f6', overflow: 'hidden',
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                    fontSize: '10px', color: '#4b5563', fontWeight: '500',
+                                                    border: '2px solid white',
+                                                    marginLeft: '-8px', // Stack effect
+                                                    zIndex: 10 - i,
+                                                    cursor: 'pointer'
+                                                }} title={m.profiles?.full_name || m.profiles?.email}>
+                                                    {m.profiles?.avatar_url ? (
+                                                        <img src={m.profiles.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                    ) : (
+                                                        (m.profiles?.full_name?.[0] || m.profiles?.email?.[0] || '?').toUpperCase()
+                                                    )}
+                                                </div>
+                                            ))}
+                                            {overflowCount > 0 && (
+                                                <div
+                                                    onClick={() => setShowShareModal(true)}
+                                                    style={{
+                                                        width: '24px', height: '24px', borderRadius: '50%',
+                                                        backgroundColor: '#f3f4f6',
+                                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                        fontSize: '10px', color: '#6b7280', fontWeight: '500',
+                                                        border: '2px solid white',
+                                                        marginLeft: '-8px',
+                                                        zIndex: 0,
+                                                        cursor: 'pointer'
+                                                    }}
+                                                    title={`View ${overflowCount} more`}
+                                                >
+                                                    +{overflowCount}
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Add Member Button (Small) */}
+                                        {can('create_board') && (
+                                            <button
+                                                onClick={() => setShowShareModal(true)}
+                                                style={{
+                                                    width: '24px', height: '24px', borderRadius: '50%',
+                                                    backgroundColor: 'transparent',
+                                                    border: '1px dashed hsl(var(--color-border))',
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                    color: 'hsl(var(--color-text-tertiary))',
+                                                    cursor: 'pointer',
+                                                    marginLeft: '4px',
+                                                    transition: 'all 0.2s'
+                                                }}
+                                                title="Add member"
+                                            >
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                                            </button>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })()}
                 </div>
             </div>
 

@@ -112,7 +112,7 @@ interface BoardState {
     // Phase 3: Person Picker & Mentions
     searchUsers: (query: string) => Promise<any[]>;
     inviteAndAssignUser: (boardId: string, userId: string, role: string, itemId: string, columnId: string) => Promise<void>;
-    createNotification: (userId: string, type: string, content: string, entityId: string) => Promise<void>;
+    createNotification: (userId: string, type: string, content: string, entityId?: string, extraData?: any) => Promise<void>;
 
     // Realtime
     realtimeSubscription: any; // Using any for proper supabase channel type without heavy imports for now
@@ -401,8 +401,11 @@ export const useBoardStore = create<BoardState>((set, get) => ({
                     // SILENT REFRESH: Fetch members without triggering global loading state
                     const members = await get().getBoardMembers(activeBoardId);
                     set({ activeBoardMembers: members });
+                    console.log('[loadUserData] Silent refresh members:', members);
                 } else {
                     // INITIAL LOAD or BOARD CHANGE: Trigger full setup (with potential loading UI)
+                    // This calls setActiveBoard, which calls getBoardMembers
+                    console.log('[loadUserData] Setting active board:', activeBoardId);
                     get().setActiveBoard(activeBoardId);
                 }
             }
@@ -1004,7 +1007,7 @@ export const useBoardStore = create<BoardState>((set, get) => ({
 
     // --- Task Updates ---
     addUpdate: async (itemId, content, author) => {
-        const { activeBoardId, activeBoardMembers, createNotification } = get();
+        const { activeBoardId, activeBoardMembers } = get();
         const newUpdate = {
             id: uuidv4(),
             content,
@@ -1049,31 +1052,84 @@ export const useBoardStore = create<BoardState>((set, get) => ({
         }
 
         // 3. Mention Logic
-        // Simple regex to find @String. Note: This assumes names don't have spaces or logic handles it. 
-        // For "Full Name" mentions, we might need a more robust parser or specific format like @[Full Name]
-        // Let's try to match typical name patterns.
-        const mentionRegex = /@([a-zA-Z0-9_ ]+)/g;
-        const matches = content.match(mentionRegex);
+        // 3. Mention Logic
+        // Enhanced Regex to avoid false positives (emails) and handle multi-word names
+        // Matches @ followed by words, ensuring valid prefix (start, space, or >)
+        const mentionRegex = /(?:^|\s|>)(@([a-zA-Z0-9_]+(?:\s+[a-zA-Z0-9_]+)*))/g;
 
-        if (matches && activeBoardMembers.length > 0) {
-            const mentionedNames = new Set(matches.map(m => m.substring(1).trim())); // remove @
+        // Use Set to avoid duplicate notifications for the same user in one update
+        const uniqueUserIdsToNotify = new Set<string>();
 
-            mentionedNames.forEach(async (name) => {
-                // Find user by name (fuzzy or exact)
-                const targetMember = activeBoardMembers.find(m => {
-                    const profileName = m.profiles?.full_name || m.profiles?.email || '';
-                    return profileName.toLowerCase() === name.toLowerCase() || profileName.toLowerCase().includes(name.toLowerCase());
+        let match;
+        // Reset lastIndex is not needed if we create fresh regex or use matchAll, but loop is safe
+        while ((match = mentionRegex.exec(content)) !== null) {
+            // match[1] is "@Candidate Name"
+            // match[2] is "Candidate Name"
+            const fullCandidate = match[2];
+
+            // Backtracking Strategy:
+            // The regex might capture "@Bob and I" as "Bob and I". 
+            // We strip words from the end until we find a match or run out of words.
+            // This prioritizes the longest valid name (e.g. "John Doe" over "John").
+
+            const words = fullCandidate.split(/\s+/);
+            let currentSearch = fullCandidate;
+
+            for (let i = words.length; i > 0; i--) {
+                // Reconstruct string with i words
+                if (i < words.length) {
+                    currentSearch = words.slice(0, i).join(' ');
+                }
+
+                // Check for match
+                const matchedUser = activeBoardMembers.find(m => {
+                    const profileName = (m.profiles?.full_name || '').toLowerCase();
+                    const emailUser = (m.profiles?.email?.split('@')[0] || '').toLowerCase();
+                    const search = currentSearch.toLowerCase();
+
+                    // Strict matching for reliability
+                    return profileName === search || emailUser === search;
                 });
 
-                if (targetMember && targetMember.user_id !== author.id) {
-                    await createNotification(
-                        targetMember.user_id,
-                        'mention',
-                        `${author.name} mentioned you in an update: "${content.substring(0, 50)}${content.length > 50 ? '...' : ''}"`,
-                        itemId
-                    );
+                if (matchedUser) {
+                    if (matchedUser.user_id !== author.id) {
+                        uniqueUserIdsToNotify.add(matchedUser.user_id);
+                    }
+                    break; // Found the longest valid match, stop backtracking for this capture
                 }
+            }
+        }
+
+        // 3. Mentions Logic
+        // Extract user IDs from content (looking for data-id="USER_ID" from RichTextEditor)
+        console.log('[Mentions Debug] Content:', content);
+        const dataIdRegex = /data-id="([^"]+)"/g;
+        const mentionedUserIds = new Set<string>();
+        let dataIdMatch;
+
+        while ((dataIdMatch = dataIdRegex.exec(content)) !== null) {
+            console.log('[Mentions Debug] Match found:', dataIdMatch[1]);
+            if (dataIdMatch[1] && dataIdMatch[1] !== author.id) {
+                mentionedUserIds.add(dataIdMatch[1]);
+            }
+        }
+
+        if (mentionedUserIds.size > 0) {
+            console.log('[Mentions Debug] Triggering notifications for:', Array.from(mentionedUserIds));
+
+            // Send notifications
+            mentionedUserIds.forEach(async (targetUserId) => {
+                console.log('[Mentions Debug] Creating notification for:', targetUserId);
+                await get().createNotification(
+                    targetUserId,
+                    'mention',
+                    `${author.name} mentioned you in an update`,
+                    itemId,
+                    { board_id: activeBoardId }
+                );
             });
+        } else {
+            console.log('[Mentions Debug] No valid mentions found to notify.');
         }
     },
     deleteUpdate: async (itemId, updateId) => {
@@ -1139,6 +1195,10 @@ export const useBoardStore = create<BoardState>((set, get) => ({
             .on('postgres_changes', { event: '*', schema: 'public', table: 'groups' }, () => get().loadUserData(true))
             .on('postgres_changes', { event: '*', schema: 'public', table: 'columns' }, () => get().loadUserData(true))
             .on('postgres_changes', { event: '*', schema: 'public', table: 'items' }, () => get().loadUserData(true))
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, () => {
+                console.log('[Realtime] Notification received, reloading data...');
+                get().loadUserData(true);
+            })
             .subscribe((status) => {
                 console.log('[Realtime] Subscription status:', status);
 
@@ -1273,14 +1333,18 @@ export const useBoardStore = create<BoardState>((set, get) => ({
     },
 
     getBoardMembers: async (boardId: string) => {
-        const { data, error } = await supabase
+        console.log('[getBoardMembers] START - boardId:', boardId);
+        const { activeWorkspaceId } = get();
+
+        // 1. Fetch data from board_members
+        const { data: boardData, error: boardError } = await supabase
             .from('board_members')
             .select(`
                 id,
                 role,
                 joined_at,
                 user_id,
-                profiles:user_id (
+                profiles: user_id(
                     id,
                     email,
                     full_name,
@@ -1289,18 +1353,66 @@ export const useBoardStore = create<BoardState>((set, get) => ({
             `)
             .eq('board_id', boardId);
 
-        if (error) {
-            console.error('Error fetching board members:', error);
-            return [];
+        if (boardError) {
+            console.error('Error fetching board members:', boardError);
+        }
+
+        const membersList = [...(boardData || [])];
+        const existingUserIds = new Set(membersList.map(m => m.user_id));
+
+        // 2. Fetch Board Owner (Creator)
+        // Use existing board data if available to avoid extra query
+        const activeBoard = get().boards.find(b => b.id === boardId);
+
+        // Use board's workspaceId to fetch the WORKSPACE OWNER (who effectively owns the board)
+        // This avoids querying boards.owner_id which doesn't exist and causes 400 error
+        const targetWorkspaceId = activeBoard?.workspaceId || activeWorkspaceId;
+
+        // 3. Fetch Workspace Owner (Implicit Access)
+        let ownerMember: any = null;
+        if (targetWorkspaceId) {
+            const { data: wsOwnerData } = await supabase
+                .from('workspaces')
+                .select('owner_id')
+                .eq('id', targetWorkspaceId)
+                .single();
+
+            if (wsOwnerData?.owner_id && !existingUserIds.has(wsOwnerData.owner_id)) {
+                const { data: wsOwnerProfile } = await supabase
+                    .from('profiles')
+                    .select('id, email, full_name, avatar_url')
+                    .eq('id', wsOwnerData.owner_id)
+                    .single();
+
+                if (wsOwnerProfile) {
+                    ownerMember = {
+                        id: 'ws_owner_placeholder',
+                        user_id: wsOwnerProfile.id,
+                        role: 'workspace_owner', // Distinguish role
+                        profiles: wsOwnerProfile
+                    };
+                }
+            }
+        }
+
+        // 4. Merge: Board Members + Owner
+        const combinedMembers = [...membersList];
+        const existingUserIdsWithImplicit = new Set(existingUserIds);
+
+        if (ownerMember && !existingUserIdsWithImplicit.has(ownerMember.user_id)) {
+            combinedMembers.push(ownerMember);
+            existingUserIdsWithImplicit.add(ownerMember.user_id);
+            console.log('[Mentions] Workspace Owner added to list as implicit member');
         }
 
         // Update activeBoardMembers if this is the active board
         if (get().activeBoardId === boardId) {
-            set({ activeBoardMembers: data || [] });
+            set({ activeBoardMembers: combinedMembers });
         }
 
-        return data || [];
+        return combinedMembers;
     },
+
 
     updateMemberRole: async (memberId: string, newRole: string, type: 'workspace' | 'board') => {
         const table = type === 'workspace' ? 'workspace_members' : 'board_members';
@@ -1336,7 +1448,7 @@ export const useBoardStore = create<BoardState>((set, get) => ({
         const { data, error } = await supabase
             .from('profiles')
             .select('*')
-            .or(`full_name.ilike.%${query}%,email.ilike.%${query}%`)
+            .or(`full_name.ilike.% ${query}%, email.ilike.% ${query}% `)
             .limit(10);
 
         if (error) {
@@ -1346,7 +1458,7 @@ export const useBoardStore = create<BoardState>((set, get) => ({
         return data || [];
     },
 
-    createNotification: async (userId, type, content, entityId) => {
+    createNotification: async (userId, type, content, entityId, extraData) => {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
@@ -1355,7 +1467,8 @@ export const useBoardStore = create<BoardState>((set, get) => ({
             actor_id: user.id,
             type,
             content,
-            entity_id: entityId
+            entity_id: entityId,
+            data: extraData
         });
     },
 
@@ -1368,7 +1481,7 @@ export const useBoardStore = create<BoardState>((set, get) => ({
 
         if (!isMember) {
             // Invite First
-            console.log(`[Inviting] User ${userId} to board ${boardId} as ${role}`);
+            console.log(`[Inviting] User ${userId} to board ${boardId} as ${role} `);
             const { error: inviteError } = await supabase.from('board_members').insert({
                 board_id: boardId,
                 user_id: userId,
@@ -1394,7 +1507,7 @@ export const useBoardStore = create<BoardState>((set, get) => ({
         await get().createNotification(
             userId,
             'assignment',
-            `${currentUser?.user_metadata?.full_name || 'Someone'} assigned you to an item in ${boardTitle}`,
+            `${currentUser?.user_metadata?.full_name || 'Someone'} assigned you to an item in ${boardTitle} `,
             itemId
         );
     },

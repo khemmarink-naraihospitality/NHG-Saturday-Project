@@ -12,7 +12,7 @@ interface NotificationItemProps {
 }
 
 export const NotificationItem = ({ notification, onClose }: NotificationItemProps) => {
-    const { markNotificationAsRead, handleAcceptInvite, handleDeclineInvite, dismissNotification, setActiveBoard, setActiveWorkspace } = useBoardStore();
+    const { markNotificationAsRead, handleAcceptInvite, handleDeclineInvite, dismissNotification, setActiveBoard, setActiveWorkspace, setActiveItem } = useBoardStore();
     const [isProcessing, setIsProcessing] = useState(false);
 
     const isInvite = notification.type === 'workspace_invite' || notification.type === 'board_invite';
@@ -40,6 +40,14 @@ export const NotificationItem = ({ notification, onClose }: NotificationItemProp
         // Navigation Logic
         if (notification.data?.board_id) {
             setActiveBoard(notification.data.board_id);
+            // If linked to an item (mention/assignment), open it
+            if (notification.entity_id) {
+                // Short delay to allow board switch to register if needed, 
+                // though Zustand updates are sync usually. 
+                // However, switching board might trigger data fetch.
+                // But setActiveItem just sets ID, so it should be fine.
+                setActiveItem(notification.entity_id);
+            }
             if (onClose) onClose();
         } else if (notification.data?.workspace_id) {
             setActiveWorkspace(notification.data.workspace_id);

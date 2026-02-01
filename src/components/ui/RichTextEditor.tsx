@@ -19,12 +19,34 @@ export const RichTextEditor = ({ value, onChange }: RichTextEditorProps) => {
     const [mentionRange, setMentionRange] = useState<Range | null>(null);
     const { activeBoardMembers } = useBoardStore();
 
+    // Helper to get display name (prefer email username)
+    const getDisplayName = (member: any) => {
+        if (member.profiles?.email) {
+            return member.profiles.email.split('@')[0];
+        }
+        return member.profiles?.full_name || 'Unknown';
+    };
+
     const filteredMembers = mentionQuery !== null
         ? activeBoardMembers.filter(m => {
-            const name = m.profiles?.full_name || m.profiles?.email || 'Unknown';
-            return name.toLowerCase().includes(mentionQuery.toLowerCase());
+            const name = getDisplayName(m);
+            const match = name.toLowerCase().includes(mentionQuery.toLowerCase());
+            return match;
         })
         : [];
+
+    useEffect(() => {
+        if (mentionQuery !== null) {
+            console.log('[RichTextEditor] Mention Active:', mentionQuery);
+            console.log('[RichTextEditor] All Members:', activeBoardMembers.map(m => ({
+                user_id: m.user_id,
+                display: getDisplayName(m),
+                email: m.profiles?.email,
+                full_name: m.profiles?.full_name
+            })));
+            console.log('[RichTextEditor] Filtered:', filteredMembers.map(m => getDisplayName(m)));
+        }
+    }, [mentionQuery, activeBoardMembers, filteredMembers.length]);
 
     // Sync external value to editor ONLY if different and not focused (to prevent cursor jumping)
     useEffect(() => {
@@ -87,7 +109,7 @@ export const RichTextEditor = ({ value, onChange }: RichTextEditorProps) => {
         setMentionRange(null);
     };
 
-    const insertMention = (name: string) => {
+    const insertMention = (name: string, userId: string) => {
         if (!mentionRange) return; // Use the saved range
 
         const range = mentionRange;
@@ -110,6 +132,7 @@ export const RichTextEditor = ({ value, onChange }: RichTextEditorProps) => {
             // Insert the name chip
             const span = document.createElement('span');
             span.textContent = `@${name}`;
+            span.setAttribute('data-id', userId); // CRITICAL: Add data-id for parsing
             span.style.color = '#1d4ed8'; // darker blue
             span.style.backgroundColor = '#dbeafe'; // light blue bg
             span.style.padding = '2px 6px';
@@ -250,56 +273,64 @@ export const RichTextEditor = ({ value, onChange }: RichTextEditorProps) => {
             />
 
             {/* Mention Suggestions Popup */}
-            {mentionQuery !== null && filteredMembers.length > 0 && (
-                <div style={{
-                    position: 'fixed', // Use fixed to handle viewport relative from getBoundingClientRect
-                    top: mentionPosition?.top,
-                    left: mentionPosition?.left,
-                    backgroundColor: 'white',
-                    border: '1px solid hsl(var(--color-border))',
-                    borderRadius: '8px',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                    zIndex: 9999,
-                    minWidth: '200px',
-                    maxHeight: '200px',
-                    overflowY: 'auto'
-                }}>
-                    {filteredMembers.map((member, i) => (
-                        <div
-                            key={member.id}
-                            onClick={() => insertMention(member.profiles?.full_name || member.profiles?.email)}
-                            style={{
-                                padding: '8px 12px',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '8px',
-                                borderBottom: i < filteredMembers.length - 1 ? '1px solid #f0f0f0' : 'none'
-                            }}
-                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f5f7fa'}
-                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                        >
-                            <div style={{
-                                width: '24px', height: '24px', borderRadius: '50%',
-                                backgroundColor: '#ccc', overflow: 'hidden',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                fontSize: '10px', color: 'white', fontWeight: 'bold'
-                            }}>
-                                {member.profiles?.avatar_url ? (
-                                    <img src={member.profiles.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                ) : (
-                                    (member.profiles?.full_name?.[0] || member.profiles?.email?.[0] || '?').toUpperCase()
-                                )}
-                            </div>
-                            <span style={{ fontSize: '13px', color: '#333' }}>
-                                {member.profiles?.full_name || member.profiles?.email}
-                            </span>
-                        </div>
-                    ))}
-                </div>
-            )}
+            {
+                mentionQuery !== null && filteredMembers.length > 0 && (
+                    <div style={{
+                        position: 'fixed', // Use fixed to handle viewport relative from getBoundingClientRect
+                        top: mentionPosition?.top,
+                        left: mentionPosition?.left,
+                        backgroundColor: 'white',
+                        border: '1px solid hsl(var(--color-border))',
+                        borderRadius: '8px',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                        zIndex: 9999,
+                        minWidth: '200px',
+                        maxHeight: '200px',
+                        overflowY: 'auto'
+                    }}>
+                        {filteredMembers.map((member, i) => (
+                            <div
+                                key={member.user_id || i}
+                                onClick={() => insertMention(getDisplayName(member), member.user_id)}
+                                style={{
+                                    padding: '8px 12px',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
 
-            <style>{`
+                                    gap: '8px',
+                                    borderBottom: i < filteredMembers.length - 1 ? '1px solid #f0f0f0' : 'none',
+                                    backgroundColor: 'white' // default
+                                }}
+                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f5f7fa'}
+                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'white'}
+                            >
+                                <div style={{
+                                    width: '24px', height: '24px', borderRadius: '50%',
+                                    backgroundColor: '#e0e7ff', overflow: 'hidden',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    fontSize: '10px', color: '#3730a3', fontWeight: 'bold'
+                                }}>
+                                    {member.profiles?.avatar_url ? (
+                                        <img src={member.profiles.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                    ) : (
+                                        (member.profiles?.full_name?.[0] || member.profiles?.email?.[0] || '?').toUpperCase()
+                                    )}
+                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                    <span style={{ fontSize: '13px', color: '#333', fontWeight: 500 }}>
+                                        {getDisplayName(member)}
+                                    </span>
+                                    <span style={{ fontSize: '11px', color: '#6b7280' }}>
+                                        {member.profiles?.email || ''}
+                                        {member.role === 'owner' && <span style={{ marginLeft: '4px', color: '#f59e0b', fontWeight: 'bold' }}>(Owner)</span>}
+                                        {member.role === 'workspace_owner' && <span style={{ marginLeft: '4px', color: '#854d0e', fontWeight: 'bold', fontSize: '10px' }}>(Workspace Owner)</span>}
+                                    </span>
+                                </div>
+                            </div>
+                        ))}
+
+                        <style>{`
                 .rich-text-content ul, .rich-text-content ol {
                     margin-left: 20px;
                 }
@@ -308,6 +339,9 @@ export const RichTextEditor = ({ value, onChange }: RichTextEditorProps) => {
                     text-decoration: underline;
                 }
             `}</style>
-        </div>
+                    </div>
+                )
+            }
+        </div >
     );
 };
