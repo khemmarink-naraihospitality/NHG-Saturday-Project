@@ -3,10 +3,12 @@ import type { Item, Group } from '../types';
 // 1. Add 'header' and 'footer' to type
 export type VirtualItemType = 'group' | 'header' | 'item' | 'footer';
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export interface VirtualItemData {
     type: VirtualItemType;
     id: string; // itemId or groupId
-    data: any; // Item object or Group data (title, color, count)
+    // Data can be Item, Group, or metadata object - using 'any' for flexibility
+    data: any;
     depth: number;
     groupColor?: string; // For the left border branding
 }

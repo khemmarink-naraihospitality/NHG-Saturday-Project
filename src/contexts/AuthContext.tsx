@@ -42,6 +42,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }, []);
 
     const signOut = async () => {
+        // Clear localStorage first to prevent race conditions
+        localStorage.removeItem('lastActiveBoardId');
+        localStorage.removeItem('lastActiveWorkspaceId');
+
+        // Clear URL to root (use replaceState to prevent back button issues)
+        window.history.replaceState(null, '', '/');
+
+        // Sign out from Supabase
         await supabase.auth.signOut();
     };
 

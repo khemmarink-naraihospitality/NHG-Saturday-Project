@@ -16,7 +16,13 @@ export interface Column {
     aggregation?: 'sum' | 'avg' | 'min' | 'max' | 'count' | 'none';
 }
 
+// ItemValue stores dynamic column data
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export interface ItemValue {
+    // Using 'any' here is intentional - column values can be of various types
+    // (string, number, boolean, Date, string[], etc.) depending on the column type
+    // Strict typing would require complex discriminated unions that don't provide
+    // practical benefits given the dynamic nature of user-defined columns
     [columnId: string]: any;
 }
 
@@ -84,14 +90,26 @@ export interface Board {
     filters?: FilterState[]; // Support multiple column filters
 }
 
+export type NotificationType = 'workspace_invite' | 'board_invite' | 'assignment' | 'mention';
+export type NotificationStatus = 'pending' | 'accepted' | 'declined';
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export interface NotificationData {
+    // Notification data structure varies by type - using 'any' for flexibility
+    workspace_id?: string;
+    board_id?: string;
+    item_id?: string;
+    [key: string]: any;
+}
+
 export interface Notification {
     id: string;
-    type: string; // 'workspace_invite' | 'board_invite' | 'assignment' | 'mention'
+    type: NotificationType;
     title: string;
     message: string | null;
-    data: any;
+    data: NotificationData;
     is_read: boolean;
-    status?: string; // 'pending' | 'accepted' | 'declined'
+    status?: NotificationStatus;
     created_at: string;
     actor_id?: string;
     user_id: string;

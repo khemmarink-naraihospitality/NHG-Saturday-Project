@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, lazy, Suspense } from 'react';
 import { slugify } from './lib/utils';
 import { Sidebar } from './components/board/Sidebar'
 import { BoardHeader } from './components/board/BoardHeader';
@@ -16,8 +16,26 @@ import { supabase } from './lib/supabase';
 
 import { HomePage } from './pages/HomePage';
 import { TopBar } from './components/layout/TopBar';
-import { NotificationPage } from './pages/NotificationPage';
-import { AdminPage } from './pages/AdminPage';
+
+// Lazy load heavy pages to reduce initial bundle size
+const NotificationPage = lazy(() => import('./pages/NotificationPage').then(m => ({ default: m.NotificationPage })));
+const AdminPage = lazy(() => import('./pages/AdminPage').then(m => ({ default: m.AdminPage })));
+
+// Loading fallback component
+function PageLoader() {
+  return (
+    <div style={{
+      height: '100vh',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      color: '#64748b',
+      fontSize: '14px'
+    }}>
+      Loading...
+    </div>
+  );
+}
 
 function MainApp() {
   const activeBoardId = useBoardStore(state => state.activeBoardId);
@@ -63,6 +81,27 @@ function MainApp() {
       };
 
       initUser();
+    } else {
+      // Handle logout - clear all state
+      console.log('MainApp: session cleared (logged out)');
+      window.history.replaceState(null, '', '/');
+
+      // Clear board store state
+      useBoardStore.setState({
+        activeBoardId: null,
+        activeWorkspaceId: '',
+        boards: [],
+        workspaces: [],
+        activePage: 'home',
+        activeBoardMembers: [], // Clear members to prevent showing wrong owner
+        notifications: [],
+        selectedItemIds: [],
+        activeItemId: null
+      });
+
+      // Clear user store (setUser expects User object, use DEFAULT_USER or just skip)
+      // Since we're logging out, we don't need to clear the user store explicitly
+      // The AuthContext will handle the session state
     }
   }, [session]);
 
@@ -198,10 +237,14 @@ function MainApp() {
 
         {activePage === 'admin' ? (
           <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999 }}>
-            <AdminPage />
+            <Suspense fallback={<PageLoader />}>
+              <AdminPage />
+            </Suspense>
           </div>
         ) : activePage === 'notifications' ? (
-          <NotificationPage />
+          <Suspense fallback={<PageLoader />}>
+            <NotificationPage />
+          </Suspense>
         ) : activePage === 'board' && activeBoard ? (
           <>
             <BoardHeader boardId={activeBoard.id} />

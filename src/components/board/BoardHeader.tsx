@@ -115,7 +115,8 @@ export const BoardHeader = ({ boardId }: BoardHeaderProps) => {
 
                     {/* Members & Owner Display */}
                     {(() => {
-                        const { activeBoardMembers } = useBoardStore.getState();
+                        // FIX: Use reactive hook instead of getState() to prevent stale data
+                        const activeBoardMembers = useBoardStore(state => state.activeBoardMembers);
                         const owner = activeBoardMembers.find(m => m.role === 'owner' || m.role === 'workspace_owner');
                         // Filter out owner from general members list to avoid duplication
                         // If owner is workspace_owner, they might appear as member too if logic duplicated, but usually unique by ID.

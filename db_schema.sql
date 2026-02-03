@@ -18,10 +18,11 @@ create policy "Users can view their own notifications"
   on notifications for select
   using (auth.uid() = user_id);
 
--- Policy: System/Users can insert notifications for others (depending on app logic, strictly usually only server, but for client-side app we might allow it if strict backend isn't ready)
-create policy "Users can create notifications"
+-- Policy: Authenticated users can create notifications
+-- Note: In production, you may want to restrict this further based on board membership
+create policy "Authenticated users can create notifications"
   on notifications for insert
-  with check (true); -- Ideally restrict to related boards, but open for now for dev.
+  with check (auth.uid() IS NOT NULL);
 
 -- Policy: Users can update their own notifications (mark read)
 create policy "Users can update their own notifications"

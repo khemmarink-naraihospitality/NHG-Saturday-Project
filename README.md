@@ -65,15 +65,21 @@ VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
 
 ### 4. Database Setup
 
-Run the following SQL scripts in your Supabase SQL Editor **in this order**:
+Run the SQL scripts in your Supabase SQL Editor. You have two options:
 
-1. `activity_logs_schema.sql` - Activity logging system
-2. `delete_user_function.sql` - User deletion with logging
-3. `trigger_user_signup_log.sql` - Auto-log user signups
-4. `trigger_workspace_board_logs.sql` - Auto-log workspace/board creation
-5. Other policy files as needed for RLS
+**Option 1: Quick Setup (Recommended)**
+Run the complete setup script:
+- `scripts/setup_complete.sql` - All-in-one setup script
 
-**Note:** SQL scripts are located in the `/brain/` folder of this repository.
+**Option 2: Individual Scripts (Advanced)**
+Run the following SQL scripts **in this order**:
+1. `scripts/activity_logs_schema.sql` - Activity logging system
+2. `scripts/delete_user_function.sql` - User deletion with logging
+3. `scripts/trigger_user_signup_log.sql` - Auto-log user signups
+4. `scripts/trigger_workspace_board_logs.sql` - Auto-log workspace/board creation
+5. `db_schema.sql` - Notifications table and policies
+
+**Note:** All SQL scripts are located in the `/scripts/` folder of this repository.
 
 ### 5. Run Development Server
 
