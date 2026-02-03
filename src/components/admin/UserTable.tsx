@@ -80,12 +80,27 @@ export const UserTable = () => {
 
     const handleRoleUpdate = async (userId: string, newRole: string) => {
         try {
+            const targetUser = profiles.find(p => p.id === userId);
+            const oldRole = targetUser?.system_role;
+
             const { error } = await supabase
                 .from('profiles')
                 .update({ system_role: newRole })
                 .eq('id', userId);
 
             if (error) throw error;
+
+            // Log the activity
+            await supabase.rpc('log_activity', {
+                p_action_type: 'role_updated',
+                p_target_type: 'user',
+                p_target_id: userId,
+                p_metadata: {
+                    old_role: oldRole,
+                    new_role: newRole,
+                    target_email: targetUser?.email
+                }
+            });
 
             setProfiles(prev => prev.map(p =>
                 p.id === userId ? { ...p, system_role: newRole as any } : p
