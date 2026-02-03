@@ -153,11 +153,36 @@ export const ActivityLogs = () => {
                                     <div style={{ fontSize: '13px', color: '#64748b', marginTop: '2px' }}>
                                         by {log.actor_name} ({log.actor_email})
                                     </div>
-                                    {log.metadata && (
-                                        <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '4px' }}>
-                                            {JSON.stringify(log.metadata)}
-                                        </div>
-                                    )}
+                                    {log.metadata && (() => {
+                                        const meta = log.metadata;
+                                        let description = '';
+
+                                        switch (log.action_type) {
+                                            case 'role_updated':
+                                                description = `Changed role from ${meta.old_role || 'N/A'} to ${meta.new_role || 'N/A'} for ${meta.target_email || 'user'}`;
+                                                break;
+                                            case 'user_signup':
+                                                description = `New user: ${meta.full_name || 'Unknown'} (${meta.email || 'N/A'}) as ${meta.system_role || 'user'}`;
+                                                break;
+                                            case 'user_deleted':
+                                                description = `Deleted user: ${meta.full_name || 'Unknown'} (${meta.email || 'N/A'})`;
+                                                break;
+                                            case 'workspace_created':
+                                                description = `Created workspace: "${meta.workspace_title || 'Untitled'}"`;
+                                                break;
+                                            case 'board_created':
+                                                description = `Created board: "${meta.board_title || 'Untitled'}" in workspace "${meta.workspace_title || 'Unknown'}"`;
+                                                break;
+                                            default:
+                                                description = JSON.stringify(meta);
+                                        }
+
+                                        return (
+                                            <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '4px' }}>
+                                                {description}
+                                            </div>
+                                        );
+                                    })()}
                                 </div>
                                 <div style={{ fontSize: '12px', color: '#94a3b8', flexShrink: 0 }}>
                                     {new Date(log.created_at).toLocaleString()}
