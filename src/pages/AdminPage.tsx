@@ -4,14 +4,15 @@ import { useBoardStore } from '../store/useBoardStore';
 import { supabase } from '../lib/supabase';
 import {
     LayoutDashboard, Users, Settings,
-    ShieldCheck, Activity, ArrowLeft
+    ShieldCheck, Activity, ArrowLeft, Building2
 } from 'lucide-react';
 import { UserTable } from '../components/admin/UserTable';
+import { WorkspaceTable } from '../components/admin/WorkspaceTable';
 
 export const AdminPage = () => {
     const { currentUser } = useUserStore();
     const { navigateTo } = useBoardStore();
-    const [activeTab, setActiveTab] = useState<'dashboard' | 'users' | 'settings'>('dashboard');
+    const [activeTab, setActiveTab] = useState<'dashboard' | 'users' | 'workspaces' | 'settings'>('dashboard');
 
     // Real Stats State
     const [stats, setStats] = useState([
@@ -82,6 +83,7 @@ export const AdminPage = () => {
                     {[
                         { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
                         { id: 'users', label: 'User Management', icon: Users },
+                        { id: 'workspaces', label: 'Workspaces', icon: Building2 },
                         { id: 'settings', label: 'System Settings', icon: Settings },
                     ].map((item) => (
                         <div
@@ -120,7 +122,7 @@ export const AdminPage = () => {
             <main style={{ flex: 1, overflow: 'auto', padding: '32px 48px' }}>
                 <header style={{ marginBottom: '32px' }}>
                     <h1 style={{ fontSize: '24px', fontWeight: 700, color: '#0f172a' }}>
-                        {activeTab === 'dashboard' ? 'Overview' : activeTab === 'users' ? 'User Management' : 'Settings'}
+                        {activeTab === 'dashboard' ? 'Overview' : activeTab === 'users' ? 'User Management' : activeTab === 'workspaces' ? 'Workspace Management' : 'Settings'}
                     </h1>
                     <p style={{ color: '#64748b', marginTop: '8px' }}>
                         Welcome back, {currentUser.name}. managing system as {currentUser.system_role}.
@@ -161,6 +163,12 @@ export const AdminPage = () => {
                 {activeTab === 'users' && (
                     <div style={{ height: '600px' }}>
                         <UserTable />
+                    </div>
+                )}
+
+                {activeTab === 'workspaces' && (
+                    <div style={{ height: '600px' }}>
+                        <WorkspaceTable />
                     </div>
                 )}
             </main>
