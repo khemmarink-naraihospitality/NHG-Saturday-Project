@@ -31,9 +31,8 @@ export const UserTable = () => {
 
     // Popover State
     const [openPopoverId, setOpenPopoverId] = useState<string | null>(null);
-    const [popoverPosition, setPopoverPosition] = useState<{ top?: number; bottom?: number }>({});
+    const [popoverOpenUpward, setPopoverOpenUpward] = useState(false);
     const popoverRef = useRef<HTMLDivElement>(null);
-    const buttonRefs = useRef<{ [key: string]: HTMLButtonElement | null }>({});
 
     // Delete Confirmation State
     const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
@@ -211,7 +210,6 @@ export const UserTable = () => {
                                         {currentUser.system_role === 'super_admin' && (
                                             <>
                                                 <button
-                                                    ref={(el) => { buttonRefs.current[profile.id] = el; }}
                                                     onClick={(e) => {
                                                         if (openPopoverId === profile.id) {
                                                             setOpenPopoverId(null);
@@ -221,11 +219,7 @@ export const UserTable = () => {
                                                             const spaceAbove = rect.top;
 
                                                             // If less than 250px space below, open upward
-                                                            if (spaceBelow < 250 && spaceAbove > spaceBelow) {
-                                                                setPopoverPosition({ bottom: window.innerHeight - rect.top + 4 });
-                                                            } else {
-                                                                setPopoverPosition({ top: rect.bottom + 4 });
-                                                            }
+                                                            setPopoverOpenUpward(spaceBelow < 250 && spaceAbove > spaceBelow);
                                                             setOpenPopoverId(profile.id);
                                                         }
                                                     }}
@@ -247,10 +241,9 @@ export const UserTable = () => {
                                                     <div
                                                         ref={popoverRef}
                                                         style={{
-                                                            position: 'fixed',
-                                                            top: popoverPosition.top,
-                                                            bottom: popoverPosition.bottom,
-                                                            right: '24px',
+                                                            position: 'absolute',
+                                                            ...(popoverOpenUpward ? { bottom: '100%', marginBottom: '4px' } : { top: '100%', marginTop: '4px' }),
+                                                            right: '0',
                                                             backgroundColor: 'white',
                                                             border: '1px solid #e2e8f0',
                                                             borderRadius: '8px',
