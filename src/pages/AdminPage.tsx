@@ -4,15 +4,17 @@ import { useBoardStore } from '../store/useBoardStore';
 import { supabase } from '../lib/supabase';
 import {
     LayoutDashboard, Users, Settings,
-    ShieldCheck, Activity, ArrowLeft, Building2
+    ShieldCheck, Activity, ArrowLeft, Building2, Trello
 } from 'lucide-react';
 import { UserTable } from '../components/admin/UserTable';
 import { WorkspaceTable } from '../components/admin/WorkspaceTable';
+import { BoardTable } from '../components/admin/BoardTable';
+import { ActivityLogs } from '../components/admin/ActivityLogs';
 
 export const AdminPage = () => {
     const { currentUser } = useUserStore();
     const { navigateTo } = useBoardStore();
-    const [activeTab, setActiveTab] = useState<'dashboard' | 'users' | 'workspaces' | 'settings'>('dashboard');
+    const [activeTab, setActiveTab] = useState<'dashboard' | 'users' | 'workspaces' | 'boards' | 'settings'>('dashboard');
 
     // Real Stats State
     const [stats, setStats] = useState([
@@ -84,6 +86,7 @@ export const AdminPage = () => {
                         { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
                         { id: 'users', label: 'User Management', icon: Users },
                         { id: 'workspaces', label: 'Workspaces', icon: Building2 },
+                        { id: 'boards', label: 'Boards', icon: Trello },
                         { id: 'settings', label: 'System Settings', icon: Settings },
                     ].map((item) => (
                         <div
@@ -122,7 +125,7 @@ export const AdminPage = () => {
             <main style={{ flex: 1, overflow: 'auto', padding: '32px 48px' }}>
                 <header style={{ marginBottom: '32px' }}>
                     <h1 style={{ fontSize: '24px', fontWeight: 700, color: '#0f172a' }}>
-                        {activeTab === 'dashboard' ? 'Overview' : activeTab === 'users' ? 'User Management' : activeTab === 'workspaces' ? 'Workspace Management' : 'Settings'}
+                        {activeTab === 'dashboard' ? 'Overview' : activeTab === 'users' ? 'User Management' : activeTab === 'workspaces' ? 'Workspace Management' : activeTab === 'boards' ? 'Board Management' : 'Settings'}
                     </h1>
                     <p style={{ color: '#64748b', marginTop: '8px' }}>
                         Welcome back, {currentUser.name}. managing system as {currentUser.system_role}.
@@ -130,33 +133,36 @@ export const AdminPage = () => {
                 </header>
 
                 {activeTab === 'dashboard' && (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '24px' }}>
-                        {stats.map((stat, i) => (
-                            <div key={i} style={{
-                                backgroundColor: 'white',
-                                padding: '24px',
-                                borderRadius: '12px',
-                                border: '1px solid #e2e8f0',
-                                boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '20px'
-                            }}>
-                                <div style={{
-                                    width: '48px', height: '48px',
+                    <div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '24px', marginBottom: '24px' }}>
+                            {stats.map((stat, i) => (
+                                <div key={i} style={{
+                                    backgroundColor: 'white',
+                                    padding: '24px',
                                     borderRadius: '12px',
-                                    backgroundColor: `${stat.color}15`,
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    color: stat.color
+                                    border: '1px solid #e2e8f0',
+                                    boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '20px'
                                 }}>
-                                    <stat.icon size={24} />
+                                    <div style={{
+                                        width: '48px', height: '48px',
+                                        borderRadius: '12px',
+                                        backgroundColor: `${stat.color}15`,
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        color: stat.color
+                                    }}>
+                                        <stat.icon size={24} />
+                                    </div>
+                                    <div>
+                                        <div style={{ fontSize: '14px', color: '#64748b', fontWeight: 500 }}>{stat.label}</div>
+                                        <div style={{ fontSize: '24px', color: '#0f172a', fontWeight: 700, marginTop: '4px' }}>{stat.value}</div>
+                                    </div>
                                 </div>
-                                <div>
-                                    <div style={{ fontSize: '14px', color: '#64748b', fontWeight: 500 }}>{stat.label}</div>
-                                    <div style={{ fontSize: '24px', color: '#0f172a', fontWeight: 700, marginTop: '4px' }}>{stat.value}</div>
-                                </div>
-                            </div>
-                        ))}
+                            ))}
+                        </div>
+                        <ActivityLogs />
                     </div>
                 )}
 
@@ -169,6 +175,12 @@ export const AdminPage = () => {
                 {activeTab === 'workspaces' && (
                     <div style={{ height: '600px' }}>
                         <WorkspaceTable />
+                    </div>
+                )}
+
+                {activeTab === 'boards' && (
+                    <div style={{ height: '600px' }}>
+                        <BoardTable />
                     </div>
                 )}
             </main>

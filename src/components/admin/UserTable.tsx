@@ -22,6 +22,9 @@ export const UserTable = () => {
     // Editing State
     const [editingId, setEditingId] = useState<string | null>(null);
 
+    // Delete Confirmation State
+    const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+
     const fetchProfiles = async () => {
         setIsLoading(true);
         setError(null);
@@ -61,6 +64,22 @@ export const UserTable = () => {
             setEditingId(null);
         } catch (err: any) {
             alert('Failed to update role: ' + err.message);
+        }
+    };
+
+    const handleDeleteUser = async (userId: string) => {
+        try {
+            // Delete from auth.users (cascade will handle profiles and related data)
+            const { error } = await supabase.rpc('delete_user', { user_id: userId });
+
+            if (error) throw error;
+
+            // Remove from local state
+            setProfiles(prev => prev.filter(p => p.id !== userId));
+            setDeleteConfirmId(null);
+            alert('User deleted successfully');
+        } catch (err: any) {
+            alert('Failed to delete user: ' + err.message);
         }
     };
 
@@ -184,23 +203,37 @@ export const UserTable = () => {
                                         {profile.created_at ? new Date(profile.created_at).toLocaleDateString() : '-'}
                                     </td>
                                     <td style={{ padding: '12px 24px' }}>
-                                        <button
-                                            onClick={() => {
-                                                if (currentUser.system_role === 'super_admin') {
-                                                    setEditingId(editingId === profile.id ? null : profile.id)
-                                                }
-                                            }}
-                                            style={{
-                                                border: 'none',
-                                                background: 'transparent',
-                                                cursor: currentUser.system_role === 'super_admin' ? 'pointer' : 'default',
-                                                padding: '4px',
-                                                borderRadius: '4px',
-                                                opacity: currentUser.system_role === 'super_admin' ? 1 : 0.5
-                                            }}
-                                        >
-                                            <MoreHorizontal size={16} color="#94a3b8" />
-                                        </button>
+                                        {currentUser.system_role === 'super_admin' && (
+                                            <div style={{ display: 'flex', gap: '8px' }}>
+                                                <button
+                                                    onClick={() => setEditingId(editingId === profile.id ? null : profile.id)}
+                                                    style={{
+                                                        border: 'none',
+                                                        background: 'transparent',
+                                                        cursor: 'pointer',
+                                                        padding: '4px',
+                                                        borderRadius: '4px'
+                                                    }}
+                                                >
+                                                    <MoreHorizontal size={16} color="#94a3b8" />
+                                                </button>
+                                                <button
+                                                    onClick={() => setDeleteConfirmId(profile.id)}
+                                                    style={{
+                                                        border: 'none',
+                                                        background: '#fee2e2',
+                                                        color: '#dc2626',
+                                                        cursor: 'pointer',
+                                                        padding: '4px 8px',
+                                                        borderRadius: '4px',
+                                                        fontSize: '12px',
+                                                        fontWeight: 500
+                                                    }}
+                                                >
+                                                    Delete
+                                                </button>
+                                            </div>
+                                        )}
                                     </td>
                                 </tr>
                             ))}
@@ -208,6 +241,69 @@ export const UserTable = () => {
                     </table>
                 )}
             </div>
+
+            {/* Delete Confirmation Modal */}
+            {deleteConfirmId && (
+                <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundColor: 'rgba(0,0,0,0.5)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 10000
+                }}>
+                    <div style={{
+                        backgroundColor: 'white',
+                        borderRadius: '12px',
+                        padding: '24px',
+                        maxWidth: '400px',
+                        width: '90%'
+                    }}>
+                        <h3 style={{ margin: '0 0 12px 0', fontSize: '18px', fontWeight: 600, color: '#0f172a' }}>
+                            Confirm Delete User
+                        </h3>
+                        <p style={{ margin: '0 0 20px 0', fontSize: '14px', color: '#64748b' }}>
+                            Are you sure you want to delete this user? This action cannot be undone and will remove all their data.
+                        </p>
+                        <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+                            <button
+                                onClick={() => setDeleteConfirmId(null)}
+                                style={{
+                                    padding: '8px 16px',
+                                    border: '1px solid #e2e8f0',
+                                    borderRadius: '6px',
+                                    backgroundColor: 'white',
+                                    cursor: 'pointer',
+                                    fontSize: '14px',
+                                    fontWeight: 500,
+                                    color: '#475569'
+                                }}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={() => handleDeleteUser(deleteConfirmId)}
+                                style={{
+                                    padding: '8px 16px',
+                                    border: 'none',
+                                    borderRadius: '6px',
+                                    backgroundColor: '#dc2626',
+                                    color: 'white',
+                                    cursor: 'pointer',
+                                    fontSize: '14px',
+                                    fontWeight: 500
+                                }}
+                            >
+                                Delete User
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
