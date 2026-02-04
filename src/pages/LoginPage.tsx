@@ -68,9 +68,32 @@ export const LoginPage = () => {
                 width: '100%',
                 maxWidth: '400px'
             }}>
-                <h1 style={{ marginBottom: '24px', textAlign: 'center', color: '#323338' }}>
-                    {isSignUp ? 'Create Account' : 'Welcome Back'}
-                </h1>
+                <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+                    <img
+                        src="https://guideline.lubd.com/wp-content/uploads/2025/11/NHG128-1.png"
+                        alt="NHG Logo"
+                        style={{ width: '64px', height: '64px', marginBottom: '16px', objectFit: 'contain' }}
+                    />
+                    <h1 style={{
+                        margin: '0',
+                        fontSize: '32px',
+                        fontWeight: 400,
+                        color: '#323338',
+                        letterSpacing: '-0.5px'
+                    }}>
+                        {isSignUp ? 'Create Account' : 'Log In'}
+                    </h1>
+                    {!isSignUp && (
+                        <p style={{
+                            margin: '4px 0 0',
+                            fontSize: '16px',
+                            color: '#676879',
+                            fontWeight: 400
+                        }}>
+                            NHG Saturday
+                        </p>
+                    )}
+                </div>
 
                 {error && (
                     <div style={{
