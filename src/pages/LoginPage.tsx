@@ -154,7 +154,10 @@ export const LoginPage = () => {
                             fontSize: '16px',
                             fontWeight: 500,
                             cursor: loading ? 'not-allowed' : 'pointer',
-                            opacity: loading ? 0.7 : 1
+                            opacity: loading ? 0.7 : 1,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
                         }}
                     >
                         {loading ? 'Processing...' : (isSignUp ? 'Sign Up' : 'Log In')}
