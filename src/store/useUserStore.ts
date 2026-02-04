@@ -26,7 +26,7 @@ export const useUserStore = create<UserState>()(
             })),
         }),
         {
-            name: 'workera-user-storage',
+            name: 'nhg-saturday-user-storage',
         }
     )
 );
