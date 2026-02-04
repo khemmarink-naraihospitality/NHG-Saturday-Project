@@ -77,7 +77,11 @@ function MainApp() {
         navigateTo('home');
 
         console.log('MainApp: calling loadUserData');
-        loadUserData();
+        await loadUserData();
+
+        // Load notifications after user data is loaded
+        const loadNotifications = useBoardStore.getState().loadNotifications;
+        await loadNotifications();
       };
 
       initUser();

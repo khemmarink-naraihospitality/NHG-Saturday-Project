@@ -465,9 +465,16 @@ export const Sidebar = () => {
                                 {filteredWorkspaces.map(ws => (
                                     <div
                                         key={ws.id}
-                                        onClick={() => {
+                                        onClick={async () => {
                                             setActiveWorkspace(ws.id);
                                             setIsWorkspaceDropdownOpen(false);
+                                            // Reload data to ensure boards are loaded for this workspace
+                                            await get().loadUserData(true);
+                                            // Auto-open first board of this workspace
+                                            const workspaceBoards = boards.filter(b => b.workspaceId === ws.id);
+                                            if (workspaceBoards.length > 0) {
+                                                setActiveBoard(workspaceBoards[0].id);
+                                            }
                                         }}
                                         className="workspace-item-row"
                                         style={{
