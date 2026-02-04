@@ -44,7 +44,7 @@ A modern, collaborative work management platform inspired by Monday.com, built w
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/Jirawat209/Workera.git
+git clone https://github.com/khemmarink-naraihospitality/NHG-Saturday-Project.git
 cd Workera
 ```
 
@@ -178,7 +178,7 @@ This project is private and proprietary.
 
 ## 👥 Team
 
-Developed by Jirawat Kongka and team at Nara Hospitality.
+Developed by Khemmarin K. and team at Nara Hospitality.
 
 ## 📞 Support
 

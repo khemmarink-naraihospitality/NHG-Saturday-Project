@@ -5,14 +5,14 @@
 Your project is already on GitHub! Simply share the repository URL with your team:
 
 ```
-https://github.com/Jirawat209/Workera
+https://github.com/khemmarink-naraihospitality/NHG-Saturday-Project
 ```
 
 ### Team Setup Steps:
 
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/Jirawat209/Workera.git
+   git clone https://github.com/khemmarink-naraihospitality/NHG-Saturday-Project.git
    cd Workera
    ```
 
@@ -49,7 +49,6 @@ If you want to share as a downloadable package:
 
 ```bash
 # Create a clean package (excludes node_modules, .git, etc.)
-cd /Users/jirawat/.gemini/antigravity/scratch
 zip -r Workera-Package.zip Workera \
   -x "Workera/node_modules/*" \
   -x "Workera/.git/*" \
@@ -83,7 +82,6 @@ Deploy the app so your team can access it online:
 
 2. **Deploy:**
    ```bash
-   cd /Users/jirawat/.gemini/antigravity/scratch/Workera
    vercel
    ```
 
