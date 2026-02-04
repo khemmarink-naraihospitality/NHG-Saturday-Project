@@ -262,7 +262,7 @@ export const useBoardStore = create<BoardState>((set, get) => ({
                 if (wsError) throw new Error(`Failed to create workspace: ${wsError.message}`);
 
                 // 2. Create Board
-                const newBoard = { id: boardId, workspace_id: workspaceId, title: 'Welcome to Workera', order: 0 };
+                const newBoard = { id: boardId, workspace_id: workspaceId, title: 'Welcome to NHG Saturday.com', order: 0 };
                 const { error: boardError } = await supabase.from('boards').insert(newBoard);
                 if (boardError) throw new Error(`Failed to create board: ${boardError.message}`);
 
@@ -307,7 +307,7 @@ export const useBoardStore = create<BoardState>((set, get) => ({
                 const item2Id = uuidv4();
                 const itemsMsg = [
                     {
-                        id: item1Id, board_id: boardId, group_id: group1Id, title: 'Explore Workera', order: 0,
+                        id: item1Id, board_id: boardId, group_id: group1Id, title: 'Explore NHG Saturday.com', order: 0,
                         values: { [colStatusId]: 'Working on it' }
                     },
                     {
@@ -324,7 +324,7 @@ export const useBoardStore = create<BoardState>((set, get) => ({
                     boards: [{
                         id: boardId,
                         workspaceId: workspaceId,
-                        title: 'Welcome to Workera',
+                        title: 'Welcome to NHG Saturday.com',
                         columns: columnsMsg.map(c => ({ ...c, type: c.type as ColumnType, options: c.options })),
                         groups: groupsMsg.map(g => ({
                             id: g.id, title: g.title, color: g.color,

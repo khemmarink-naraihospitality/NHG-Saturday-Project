@@ -116,7 +116,7 @@ export const AdminPage = () => {
                         style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#94a3b8', cursor: 'pointer', fontSize: '13px' }}
                     >
                         <ArrowLeft size={16} />
-                        Back to Workera
+                        Back to NHG Saturday.com
                     </div>
                 </div>
             </aside>
